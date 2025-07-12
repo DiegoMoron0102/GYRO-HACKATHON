@@ -2,11 +2,11 @@
 resolver = "2"
 members = [
     "backend/contracts/gyro",
+    "backend/contracts/user",
 ]
 
 [workspace.dependencies]
 soroban-sdk = "22.0.8"
-blend-contract-sdk = { git = "https://github.com/blend-capital/blend-contract-sdk", branch = "main" }
 
 [profile.release]
 opt-level = "z"
