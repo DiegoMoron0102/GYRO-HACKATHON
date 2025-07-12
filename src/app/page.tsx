@@ -5,6 +5,9 @@ import SplashScreen from "./components/SplashScreen";
 import CorbadoAuth from "./components/CorbadoAuth";
 import SignupForm from "./signup/SignupForm";
 import Dashboard from "./components/Dashboard";
+import HistoryPage from "./components/HistoryPage";
+import MorePage from "./components/MorePage";
+import ProfileSettingsPage from "./components/ProfileSettingsPage";
 
 interface User {
   id: number;
@@ -17,7 +20,7 @@ interface User {
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<
-    "splash" | "auth" | "signup" | "dashboard"
+    "splash" | "auth" | "signup" | "dashboard" | "history" | "more" | "settings"
   >("splash");
   const [user, setUser] = useState<User | null>(null);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
@@ -118,6 +121,12 @@ export default function Home() {
     window.location.reload();
   };
 
+  // Add function to clear only KYC status for testing
+  const clearKYCStatus = () => {
+    localStorage.removeItem("kyc_completed");
+    alert("Estado KYC limpiado. El próximo depósito/retiro solicitará verificación.");
+  };
+
   // Show splash screen
   if (showSplash || currentView === "splash") {
     return <SplashScreen onComplete={handleSplashComplete} />;
@@ -140,6 +149,12 @@ export default function Home() {
             Volver a Login
           </button>
           <button
+            onClick={clearKYCStatus}
+            className="block w-full bg-orange-500 text-white px-4 py-2 rounded text-sm"
+          >
+            Limpiar KYC
+          </button>
+          <button
             onClick={clearAllData}
             className="block w-full bg-red-500 text-white px-4 py-2 rounded text-sm"
           >
@@ -150,11 +165,54 @@ export default function Home() {
     );
   }
 
+  // Show history page
+  if (currentView === "history" && user) {
+    return (
+      <div className="history-container">
+        <HistoryPage
+          onBack={() => setCurrentView("dashboard")}
+          onNavigateToMore={() => setCurrentView("more")}
+        />
+      </div>
+    );
+  }
+
+  // Show more page
+  if (currentView === "more" && user) {
+    return (
+      <div className="more-container">
+        <MorePage
+          user={user}
+          onBack={() => setCurrentView("dashboard")}
+          onNavigateToHistory={() => setCurrentView("history")}
+        />
+      </div>
+    );
+  }
+
+  // Show settings page
+  if (currentView === "settings" && user) {
+    return (
+      <div className="more-container">
+        <ProfileSettingsPage
+          user={user}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      </div>
+    );
+  }
+
   // Show dashboard if authenticated
   if (currentView === "dashboard" && user) {
     return (
       <div className="dashboard-container">
-        <Dashboard user={user} onLogout={logout} />
+        <Dashboard
+          user={user}
+          onLogout={logout}
+          onNavigateToHistory={() => setCurrentView("history")}
+          onNavigateToMore={() => setCurrentView("more")}
+          onNavigateToSettings={() => setCurrentView("settings")}
+        />
       </div>
     );
   }
@@ -166,11 +224,17 @@ export default function Home() {
         onAuthSuccess={handleAuthSuccess}
         onShowSignup={handleShowSignup}
       />
-      {/* Add debug button */}
-      <div className="fixed bottom-4 right-4">
+      {/* Add debug buttons */}
+      <div className="fixed bottom-4 right-4 space-y-2">
+        <button
+          onClick={clearKYCStatus}
+          className="bg-orange-500 text-white px-4 py-2 rounded text-sm block w-full"
+        >
+          Limpiar KYC
+        </button>
         <button
           onClick={clearAllData}
-          className="bg-red-500 text-white px-4 py-2 rounded text-sm"
+          className="bg-red-500 text-white px-4 py-2 rounded text-sm block w-full"
         >
           Limpiar Datos
         </button>

@@ -114,6 +114,138 @@ main {
   margin: 0;
 }
 
+/* History Page específico - mismos estilos que dashboard */
+.history-container {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.history-container main {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Asegurar que el history ocupe toda la pantalla */
+.history-full-screen {
+  width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  background: white;
+}
+
+.history-main {
+  width: 100%;
+  max-width: 360px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Header del history */
+.history-header {
+  background: white;
+  padding: 16px;
+  border-bottom: 1px solid #f3f4f6;
+  margin: 0;
+}
+
+/* Contenido del history */
+.history-content {
+  flex: 1;
+  background: white;
+  margin: 0;
+  overflow-y: auto;
+  padding: 24px 0;
+}
+
+/* Navegación del history */
+.history-nav {
+  background: white;
+  padding: 8px 16px;
+  border-top: 1px solid #e5e7eb;
+  margin: 0;
+}
+
+/* More Page específico - mismos estilos que dashboard e history */
+.more-container {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.more-container main {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Asegurar que el more page ocupe toda la pantalla */
+.more-full-screen {
+  width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  background: white;
+}
+
+.more-main {
+  width: 100%;
+  max-width: 360px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Header del more - igual que history */
+.more-header {
+  background: white;
+  padding: 16px;
+  border-bottom: 1px solid #f3f4f6;
+  margin: 0;
+}
+
+/* Contenido del more - igual que dashboard content */
+.more-content {
+  flex: 1;
+  background: white;
+  margin: 0;
+  overflow-y: auto;
+  padding: 24px 16px;
+}
+
+/* Navegación del more - igual que dashboard y history */
+.more-nav {
+  background: white;
+  padding: 8px 16px;
+  border-top: 1px solid #e5e7eb;
+  margin: 0;
+}
+
+/* Animación para el modal */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

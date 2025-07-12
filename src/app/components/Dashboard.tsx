@@ -1,6 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Image from "next/image";
+import TransactionDetailModal from "./TransactionDetailModal";
+import KYCModal from "./KYCModal";
 
 interface User {
   id: number;
@@ -10,19 +13,98 @@ interface User {
   createdAt: string;
 }
 
+interface Transaction {
+  id: string;
+  type: "retiro" | "deposito" | "transferencia";
+  amount: number;
+  merchant: string;
+  date: string;
+  time: string;
+  transactionNumber: string;
+}
+
 interface DashboardProps {
   user: User;
   onLogout?: () => void;
+  onNavigateToHistory?: () => void;
+  onNavigateToMore?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
-export default function Dashboard({ user, onLogout }: DashboardProps) {
-  const handleLogout = () => {
-    localStorage.removeItem("gyro_user");
-    if (onLogout) {
-      onLogout();
-    } else {
-      window.location.reload();
+export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore, onNavigateToSettings }: DashboardProps) {
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showKYCModal, setShowKYCModal] = useState(false);
+  const [kycTransactionType, setKYCTransactionType] = useState<"deposito" | "retiro">("deposito");
+
+  const transactions: Transaction[] = [
+    {
+      id: "1",
+      type: "retiro",
+      amount: -35.23,
+      merchant: "Retiro",
+      date: "Junio 26, 2024",
+      time: "12:32",
+      transactionNumber: "23010412432431"
+    },
+    {
+      id: "2", 
+      type: "transferencia",
+      amount: 430.00,
+      merchant: "De Diego",
+      date: "Junio 25, 2024",
+      time: "02:15",
+      transactionNumber: "23010412432432"
+    },
+    {
+      id: "3",
+      type: "retiro", 
+      amount: -19.00,
+      merchant: "Retiro",
+      date: "Diciembre 24, 2024",
+      time: "14:05",
+      transactionNumber: "23010412432433"
     }
+  ];
+
+  const handleTransactionClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedTransaction(null);
+  };
+
+  const checkKYCAndProceed = (transactionType: "deposito" | "retiro") => {
+    const kycCompleted = localStorage.getItem("kyc_completed");
+    
+    if (!kycCompleted) {
+      setKYCTransactionType(transactionType);
+      setShowKYCModal(true);
+    } else {
+      // Proceder directamente con la transacción
+      proceedWithTransaction(transactionType);
+    }
+  };
+
+  const proceedWithTransaction = (transactionType: "deposito" | "retiro") => {
+    // Aquí iría la lógica para abrir el modal de depósito o retiro
+    console.log(`Proceeding with ${transactionType}`);
+    // Por ahora solo mostrar un alert
+    alert(`Procesando ${transactionType}...`);
+  };
+
+  const handleKYCComplete = () => {
+    setShowKYCModal(false);
+    proceedWithTransaction(kycTransactionType);
+  };
+
+  // Debug function to clear KYC status
+  const clearKYCStatus = () => {
+    localStorage.removeItem("kyc_completed");
+    alert("Estado KYC limpiado. El próximo depósito/retiro solicitará verificación.");
   };
 
   return (
@@ -33,15 +115,24 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-12 h-12 bg-gray-300 rounded-full overflow-hidden">
-                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500"></div>
+              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/20">
+                <Image
+                  src="/images/profile.png"
+                  alt="Profile Avatar"
+                  width={48}
+                  height={48}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <p className="text-sm opacity-90">Hello,</p>
                 <p className="font-semibold">{user.name.split(" ")[0]}</p>
               </div>
             </div>
-            <button className="p-2">
+            <button 
+              className="p-2"
+              onClick={onNavigateToSettings}
+            >
               <svg
                 width="24"
                 height="24"
@@ -65,7 +156,10 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
             </div>
 
             <div className="flex justify-center gap-6">
-              <button className="flex flex-col items-center gap-2">
+              <button 
+                className="flex flex-col items-center gap-2"
+                onClick={() => checkKYCAndProceed("deposito")}
+              >
                 <div className="w-8 h-8 flex items-center justify-center">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path
@@ -81,7 +175,10 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
 
               <div className="w-px h-8 bg-white/30 self-center"></div>
 
-              <button className="flex flex-col items-center gap-2">
+              <button 
+                className="flex flex-col items-center gap-2"
+                onClick={() => checkKYCAndProceed("retiro")}
+              >
                 <div className="w-8 h-8 flex items-center justify-center">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path
@@ -124,12 +221,20 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
           <div className="mb-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Movimientos</h3>
-              <button className="text-sm text-gray-500">View all</button>
+              <button 
+                onClick={onNavigateToHistory}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                View all
+              </button>
             </div>
 
             <div className="space-y-3">
-              {/* Transaction 1 */}
-              <div className="flex items-center justify-between py-2">
+              {/* Transaction 1 - Retiro */}
+              <button 
+                onClick={() => handleTransactionClick(transactions[0])}
+                className="w-full flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg transition-colors"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -141,7 +246,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       />
                     </svg>
                   </div>
-                  <div>
+                  <div className="text-left">
                     <p className="font-medium text-gray-900">Retiro</p>
                     <p className="text-sm text-gray-500">Hoy 12:32</p>
                   </div>
@@ -158,12 +263,15 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                     />
                   </svg>
                 </div>
-              </div>
+              </button>
 
               <div className="h-px bg-gray-100"></div>
 
-              {/* Transaction 2 */}
-              <div className="flex items-center justify-between py-2">
+              {/* Transaction 2 - Transferencia Recibida */}
+              <button 
+                onClick={() => handleTransactionClick(transactions[1])}
+                className="w-full flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg transition-colors"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -175,7 +283,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       />
                     </svg>
                   </div>
-                  <div>
+                  <div className="text-left">
                     <p className="font-medium text-gray-900">De Diego</p>
                     <p className="text-sm text-gray-500">Ayer 02:15</p>
                   </div>
@@ -192,12 +300,15 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                     />
                   </svg>
                 </div>
-              </div>
+              </button>
 
               <div className="h-px bg-gray-100"></div>
 
-              {/* Transaction 3 */}
-              <div className="flex items-center justify-between py-2">
+              {/* Transaction 3 - Retiro */}
+              <button 
+                onClick={() => handleTransactionClick(transactions[2])}
+                className="w-full flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg transition-colors"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -209,9 +320,9 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                       />
                     </svg>
                   </div>
-                  <div>
+                  <div className="text-left">
                     <p className="font-medium text-gray-900">Retiro</p>
-                    <p className="text-sm text-gray-500">Dic 26, 14:5</p>
+                    <p className="text-sm text-gray-500">Dic 26, 14:05</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -226,7 +337,7 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
                     />
                   </svg>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         </section>
@@ -240,29 +351,54 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
               </svg>
               <span className="text-xs">Home</span>
             </button>
-            <button className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400">
+            <button 
+              onClick={onNavigateToHistory}
+              className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400 hover:text-[#2A906F]"
+            >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
               </svg>
               <span className="text-xs">History</span>
             </button>
-            <button className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
-              </svg>
-              <span className="text-xs">Cards</span>
-            </button>
+            
             <button
-              className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400"
-              onClick={handleLogout}
+              className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400 hover:text-[#2A906F]"
+              onClick={onNavigateToMore}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21 18v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1" />
+                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L9 7V9H3V11H21V9M4 13H20V22H4V13Z" />
               </svg>
               <span className="text-xs">More</span>
             </button>
           </div>
         </nav>
+
+        {/* KYC Modal */}
+        <KYCModal
+          isOpen={showKYCModal}
+          onClose={() => setShowKYCModal(false)}
+          onComplete={handleKYCComplete}
+          transactionType={kycTransactionType}
+        />
+
+        {/* Transaction Detail Modal */}
+        {selectedTransaction && (
+          <TransactionDetailModal
+            transaction={selectedTransaction}
+            isOpen={isModalOpen}
+            onClose={closeModal}
+          />
+        )}
+
+        {/* Debug button for KYC testing - only show in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <button
+            onClick={clearKYCStatus}
+            className="fixed bottom-20 left-4 bg-orange-500 text-white px-3 py-2 rounded text-xs z-40"
+          >
+            Reset KYC
+          </button>
+        )}
       </main>
     </div>
   );
