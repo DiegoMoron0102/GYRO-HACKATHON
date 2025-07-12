@@ -50,7 +50,7 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
               <path d="M15 18L9 12L15 6" stroke="#1C2317" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-[#1C2317]">Deposit in Bolivianos</h1>
+          <h1 className="text-xl font-semibold text-[#1C2317]">Depositar en bolivianos</h1>
           <div className="w-10"></div>
         </header>
 
@@ -58,7 +58,7 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
         <section className="flex-1 bg-white p-4 space-y-6">
           {/* Amount Input */}
           <div className="space-y-2">
-            <label className="text-lg font-medium text-[#1C2317]">Amount</label>
+            <label className="text-lg font-medium text-[#1C2317]">Cantidad</label>
             <div className="bg-gray-100 rounded-xl p-4">
               <input
                 type="text"
@@ -72,13 +72,13 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
 
           {/* Exchange Rate */}
           <div className="flex justify-between items-center py-4">
-            <span className="text-[#698282] font-medium">Exchange rate</span>
+            <span className="text-[#698282] font-medium">Tasa de cambio</span>
             <span className="text-[#1C2317] font-medium">1 USD = {exchangeRate} BOB</span>
           </div>
 
           {/* You will receive */}
           <div className="flex justify-between items-center py-4">
-            <span className="text-[#698282] font-medium">You will receive</span>
+            <span className="text-[#698282] font-medium">Recibirás</span>
             <span className="text-[#1C2317] font-medium">
               {amount ? calculateUSDT(parseFloat(amount) || 0) : "0.00"} USDT
             </span>
@@ -86,13 +86,13 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
 
           {/* Reference Input */}
           <div className="space-y-2">
-            <label className="text-lg font-medium text-[#1C2317]">Reference</label>
+            <label className="text-lg font-medium text-[#1C2317]">Referencia</label>
             <div className="bg-gray-100 rounded-xl p-4">
               <input
                 type="text"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
-                placeholder="Optional"
+                placeholder="Opcional"
                 className="w-full bg-transparent text-base text-[#1C2317] outline-none placeholder-[#698282]"
                 maxLength={50}
               />
@@ -102,7 +102,7 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
           {/* Maximum allowed info */}
           <div className="pt-2">
             <p className="text-[#698282] text-sm">
-              Maximum allowed: {maxAmount.toLocaleString()} Bolivianos
+              Máximo permitido: {maxAmount.toLocaleString()} bolivianos
             </p>
           </div>
         </section>
@@ -118,7 +118,7 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
-            Confirm Deposit
+            Confirmar depósito
           </button>
         </footer>
       </main>

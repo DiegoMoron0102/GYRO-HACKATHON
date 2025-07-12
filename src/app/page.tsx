@@ -16,6 +16,19 @@ import DepositCryptoPage from "./components/DepositCryptoPage";
 import WithdrawPage from "./components/WithdrawPage";
 import WithdrawBolivianosPage from "./components/WithdrawBolivianosPage";
 import WithdrawCryptoPage from "./components/WithdrawCryptoPage";
+import AccountTypeSelectionPage from "./components/AccountTypeSelectionPage";
+import QRScannerPage from "./components/QRScannerPage";
+import CreateAccountPage from "./components/CreateAccountPage";
+import WithdrawConfirmationPage from "./components/WithdrawConfirmationPage";
+import CreateCryptoWalletPage from "./components/CreateCryptoWalletPage";
+
+interface SavedAccount {
+  id: string;
+  type: 'bank' | 'crypto';
+  name: string;
+  details: string;
+  bank?: string;
+}
 
 interface User {
   id: number;
@@ -40,8 +53,14 @@ export default function Home() {
   const [showDepositCryptoPage, setShowDepositCryptoPage] = useState(false);
   const [showWithdrawBolivianosPage, setShowWithdrawBolivianosPage] = useState(false);
   const [showWithdrawCryptoPage, setShowWithdrawCryptoPage] = useState(false);
+  const [showAccountTypeSelection, setShowAccountTypeSelection] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showCreateBankAccount, setShowCreateBankAccount] = useState(false);
+  const [showCreateCryptoAccount, setShowCreateCryptoAccount] = useState(false);
   const [kycTransactionType, setKycTransactionType] = useState<"deposito" | "retiro" | null>(null);
   const [depositData, setDepositData] = useState<{amount: number, reference?: string, currency?: string, cryptocurrency?: string} | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<SavedAccount | null>(null);
+  const [showWithdrawConfirmation, setShowWithdrawConfirmation] = useState(false);
 
   // Auto-logout después de 3 minutos de inactividad
   const AUTO_LOGOUT_TIME = 3 * 60 * 1000; // 3 minutos en millisegundos
@@ -351,9 +370,10 @@ export default function Home() {
           }}
           onConfirmWithdraw={(cryptocurrency, amount, walletAddress) => {
             // TODO: Implement crypto withdrawal logic
-            console.log('Confirming crypto withdrawal:', { cryptocurrency, amount, walletAddress });
+            console.log('Confirming crypto withdrawal:', { cryptocurrency, amount, walletAddress, selectedAccount });
             alert(`Retiro confirmado: ${amount} USDT a ${cryptocurrency} (${walletAddress.slice(0, 10)}...)`);
             setShowWithdrawCryptoPage(false);
+            setSelectedAccount(null); // Reset selected account
             setCurrentView("dashboard");
           }}
         />
@@ -372,11 +392,151 @@ export default function Home() {
           }}
           onConfirmWithdraw={(amount, bankAccount) => {
             // TODO: Implement bolivianos withdrawal logic
-            console.log('Confirming bolivianos withdrawal:', { amount, bankAccount });
+            console.log('Confirming bolivianos withdrawal:', { amount, bankAccount, selectedAccount });
             alert(`Retiro confirmado: ${amount} USDT a cuenta ${bankAccount}`);
             setShowWithdrawBolivianosPage(false);
+            setSelectedAccount(null); // Reset selected account
             setCurrentView("dashboard");
           }}
+        />
+      </div>
+    );
+  }
+
+  // Show Account Type Selection page
+  if (showAccountTypeSelection && user) {
+    return (
+      <div className="account-type-container">
+        <AccountTypeSelectionPage
+          onBack={() => {
+            setShowAccountTypeSelection(false);
+            setShowWithdrawPage(true);
+          }}
+          onSelectBolivianos={() => {
+            setShowAccountTypeSelection(false);
+            setShowCreateBankAccount(true);
+          }}
+          onSelectCrypto={() => {
+            setShowAccountTypeSelection(false);
+            setShowCreateCryptoAccount(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show QR Scanner page
+  if (showQRScanner && user) {
+    return (
+      <div className="qr-scanner-container">
+        <QRScannerPage
+          onBack={() => {
+            setShowQRScanner(false);
+            setShowWithdrawPage(true);
+          }}
+          onQRScanned={(data) => {
+            console.log('QR Scanned:', data);
+            // Procesar datos del QR y crear objeto de cuenta temporal
+            try {
+              const parts = data.split(':');
+              if (parts.length >= 3) {
+                const [type, bank, accountNumber, accountName] = parts;
+                
+                if (type === 'bank') {
+                  // Crear objeto de cuenta temporal para usar en la confirmación
+                  const tempAccount: SavedAccount = {
+                    id: 'temp_qr',
+                    type: 'bank',
+                    name: accountName || 'Cuenta QR',
+                    details: `${bank} - ${accountNumber}`,
+                    bank: bank
+                  };
+                  
+                  console.log('Cuenta temporal creada desde QR:', tempAccount);
+                  setSelectedAccount(tempAccount);
+                  
+                  // Ir directamente a la confirmación de retiro
+                  setShowQRScanner(false);
+                  setShowWithdrawConfirmation(true);
+                } else {
+                  alert('Tipo de QR no soportado');
+                  setShowQRScanner(false);
+                  setShowWithdrawPage(true);
+                }
+              } else {
+                alert('Formato de QR no válido');
+                setShowQRScanner(false);
+                setShowWithdrawPage(true);
+              }
+            } catch (error) {
+              console.error('Error procesando QR:', error);
+              alert('Error al procesar el código QR');
+              setShowQRScanner(false);
+              setShowWithdrawPage(true);
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show Create Bank Account page
+  if (showCreateBankAccount && user) {
+    return (
+      <div className="create-bank-account-container">
+        <CreateAccountPage
+          onBack={() => {
+            setShowCreateBankAccount(false);
+            setShowAccountTypeSelection(true);
+          }}
+          onCreateAccount={(accountData) => {
+            console.log('Bank account created:', accountData);
+            // TODO: Save bank account
+            setShowCreateBankAccount(false);
+            setShowWithdrawPage(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show Create Crypto Account page
+  if (showCreateCryptoAccount && user) {
+    return (
+      <div className="create-crypto-account-container">
+        <CreateCryptoWalletPage
+          onBack={() => {
+            setShowCreateCryptoAccount(false);
+            setShowAccountTypeSelection(true);
+          }}
+          onCreateWallet={(walletData) => {
+            console.log('Crypto wallet created:', walletData);
+            // TODO: Save crypto wallet
+            setShowCreateCryptoAccount(false);
+            setShowWithdrawPage(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show withdraw confirmation page
+  if (showWithdrawConfirmation && user && selectedAccount) {
+    return (
+      <div className="withdraw-confirmation-container">
+        <WithdrawConfirmationPage
+          onBack={() => {
+            setShowWithdrawConfirmation(false);
+            setShowWithdrawPage(true);
+          }}
+          onConfirmWithdraw={(amount) => {
+            console.log('Final withdrawal confirmation:', { amount, selectedAccount });
+            alert(`Retiro procesado: ${amount} USDT a ${selectedAccount.name}`);
+            setShowWithdrawConfirmation(false);
+            setSelectedAccount(null);
+            setCurrentView("dashboard");
+          }}
+          selectedAccount={selectedAccount}
         />
       </div>
     );
@@ -391,13 +551,18 @@ export default function Home() {
             setShowWithdrawPage(false);
             setCurrentView("dashboard");
           }}
-          onWithdrawBolivianos={() => {
+          onSelectAccount={(account) => {
+            setSelectedAccount(account);
             setShowWithdrawPage(false);
-            setShowWithdrawBolivianosPage(true);
+            setShowWithdrawConfirmation(true);
           }}
-          onWithdrawCrypto={() => {
+          onAddAccount={() => {
             setShowWithdrawPage(false);
-            setShowWithdrawCryptoPage(true);
+            setShowAccountTypeSelection(true);
+          }}
+          onScanQR={() => {
+            setShowWithdrawPage(false);
+            setShowQRScanner(true);
           }}
         />
       </div>

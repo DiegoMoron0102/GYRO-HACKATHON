@@ -94,7 +94,7 @@ export default function DepositQRPage({ onBack, amount, reference, currency = "B
               <path d="M15 18L9 12L15 6" stroke="#1C2317" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-[#1C2317]">Deposit QR Code</h1>
+          <h1 className="text-xl font-semibold text-[#1C2317]">Código QR de depósito</h1>
           <div className="w-10"></div>
         </header>
 
@@ -105,9 +105,9 @@ export default function DepositQRPage({ onBack, amount, reference, currency = "B
             <div className="w-full mb-6">
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div>
-                  <p className="font-medium text-[#1C2317]">Include amount in QR</p>
+                  <p className="font-medium text-[#1C2317]">Incluir cantidad en QR</p>
                   <p className="text-sm text-[#698282]">
-                    {includeAmount ? `${amount} ${currency}` : 'Flexible amount'}
+                    {includeAmount ? `${amount} ${currency}` : 'Cantidad flexible'}
                   </p>
                 </div>
                 <button
@@ -145,7 +145,7 @@ export default function DepositQRPage({ onBack, amount, reference, currency = "B
           <div className="w-full space-y-4 mb-6">
             {includeAmount && amount && (
               <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                <span className="text-[#698282] font-medium">Amount</span>
+                <span className="text-[#698282] font-medium">Cantidad</span>
                 <span className="text-[#1C2317] font-semibold">
                   {amount} {cryptocurrency || currency}
                 </span>
@@ -154,26 +154,26 @@ export default function DepositQRPage({ onBack, amount, reference, currency = "B
             
             {cryptocurrency && (
               <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                <span className="text-[#698282] font-medium">Cryptocurrency</span>
+                <span className="text-[#698282] font-medium">Criptomoneda</span>
                 <span className="text-[#1C2317] font-medium">{cryptocurrency}</span>
               </div>
             )}
             
             {includeAmount && reference && (
               <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                <span className="text-[#698282] font-medium">Reference</span>
+                <span className="text-[#698282] font-medium">Referencia</span>
                 <span className="text-[#1C2317] font-medium">{reference}</span>
               </div>
             )}
 
             <div className="p-4 bg-gray-50 rounded-xl">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-[#698282] font-medium">Wallet Address</span>
+                <span className="text-[#698282] font-medium">Dirección del wallet</span>
                 <button 
                   onClick={handleCopyAddress}
                   className="text-[#2A906F] hover:text-[#1F6B52] font-medium"
                 >
-                  {copied ? 'Copied!' : 'Copy'}
+                  {copied ? 'Copiado!' : 'Copiar'}
                 </button>
               </div>
               <p className="text-sm text-[#1C2317] font-mono break-all">
@@ -184,19 +184,19 @@ export default function DepositQRPage({ onBack, amount, reference, currency = "B
 
           {/* Instructions */}
           <div className="w-full p-4 bg-blue-50 rounded-xl">
-            <h3 className="font-semibold text-[#1C2317] mb-2">Instructions:</h3>
+            <h3 className="font-semibold text-[#1C2317] mb-2">Instrucciones:</h3>
             <ul className="space-y-1 text-sm text-[#698282]">
-              <li>• Scan this QR code with your wallet app</li>
+              <li>• Escanea este código QR con tu aplicación de wallet</li>
               {cryptocurrency ? (
                 <>
-                  <li>• Send {cryptocurrency} to the address above</li>
-                  <li>• Make sure you&apos;re on the correct network</li>
+                  <li>• Envía {cryptocurrency} a la dirección de arriba</li>
+                  <li>• Asegúrate de estar en la red correcta</li>
                 </>
               ) : (
-                <li>• Send the exact amount shown above</li>
+                <li>• Envía la cantidad exacta mostrada arriba</li>
               )}
-              <li>• Your deposit will be processed automatically</li>
-              <li>• Keep this reference for your records</li>
+              <li>• Tu depósito será procesado automáticamente</li>
+              <li>• Guarda esta referencia para tus registros</li>
             </ul>
           </div>
         </section>
@@ -207,7 +207,7 @@ export default function DepositQRPage({ onBack, amount, reference, currency = "B
             onClick={onBack}
             className="w-full py-3 rounded-3xl font-medium bg-gray-100 text-[#1C2317] hover:bg-gray-200 transition-colors"
           >
-            Done
+            Listo
           </button>
         </footer>
       </main>

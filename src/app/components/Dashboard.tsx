@@ -100,7 +100,7 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
                 />
               </div>
               <div>
-                <p className="text-sm opacity-90">Hello,</p>
+                <p className="text-sm opacity-90">Hola,</p>
                 <p className="font-semibold">{user.name.split(" ")[0]}</p>
               </div>
             </div>
@@ -214,7 +214,7 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
                 onClick={onNavigateToHistory}
                 className="text-sm text-gray-500 hover:text-gray-700"
               >
-                View all
+                Ver todos
               </button>
             </div>
 
@@ -338,7 +338,7 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
               </svg>
-              <span className="text-xs">Home</span>
+              <span className="text-xs">Inicio</span>
             </button>
             <button 
               onClick={onNavigateToHistory}
@@ -347,7 +347,7 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
               </svg>
-              <span className="text-xs">History</span>
+              <span className="text-xs">Historial</span>
             </button>
             
             <button
@@ -357,7 +357,7 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L9 7V9H3V11H21V9M4 13H20V22H4V13Z" />
               </svg>
-              <span className="text-xs">More</span>
+              <span className="text-xs">Más</span>
             </button>
           </div>
         </nav>

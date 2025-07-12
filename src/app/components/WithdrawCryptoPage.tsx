@@ -57,7 +57,7 @@ export default function WithdrawCryptoPage({ onBack, onConfirmWithdraw }: Withdr
               <path d="M15 18L9 12L15 6" stroke="#1C2317" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-[#1C2317]">Withdraw in Cryptocurrency</h1>
+          <h1 className="text-xl font-semibold text-[#1C2317]">Retirar en criptomoneda</h1>
           <div className="w-10"></div>
         </header>
 
@@ -65,7 +65,7 @@ export default function WithdrawCryptoPage({ onBack, onConfirmWithdraw }: Withdr
         <section className="flex-1 bg-white p-4 space-y-6">
           {/* Cryptocurrency Selector */}
           <div className="space-y-2">
-            <label className="text-lg font-medium text-[#1C2317]">Cryptocurrency</label>
+            <label className="text-lg font-medium text-[#1C2317]">Criptomoneda</label>
             <div className="relative">
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
@@ -116,7 +116,7 @@ export default function WithdrawCryptoPage({ onBack, onConfirmWithdraw }: Withdr
 
           {/* Amount Input */}
           <div className="space-y-2">
-            <label className="text-lg font-medium text-[#1C2317]">Amount (USDT)</label>
+            <label className="text-lg font-medium text-[#1C2317]">Cantidad (USDT)</label>
             <div className="bg-gray-100 rounded-xl p-4">
               <input
                 type="text"
@@ -130,7 +130,7 @@ export default function WithdrawCryptoPage({ onBack, onConfirmWithdraw }: Withdr
 
           {/* You will receive */}
           <div className="flex justify-between items-center py-4">
-            <span className="text-[#698282] font-medium">You will receive</span>
+            <span className="text-[#698282] font-medium">Recibirás</span>
             <span className="text-[#1C2317] font-medium">
               {amount ? calculateCrypto(parseFloat(amount) || 0, selectedCrypto) : "0.00"} {selectedCrypto}
             </span>
@@ -138,13 +138,13 @@ export default function WithdrawCryptoPage({ onBack, onConfirmWithdraw }: Withdr
 
           {/* Wallet Address Input */}
           <div className="space-y-2">
-            <label className="text-lg font-medium text-[#1C2317]">Wallet Address</label>
+            <label className="text-lg font-medium text-[#1C2317]">Dirección del wallet</label>
             <div className="bg-gray-100 rounded-xl p-4">
               <input
                 type="text"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                placeholder="Enter destination wallet address"
+                placeholder="Ingresa la dirección del wallet de destino"
                 className="w-full bg-transparent text-base text-[#1C2317] outline-none placeholder-[#698282]"
                 maxLength={100}
               />
@@ -163,7 +163,7 @@ export default function WithdrawCryptoPage({ onBack, onConfirmWithdraw }: Withdr
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
-            Confirm Withdrawal
+            Confirmar retiro
           </button>
         </footer>
       </main>

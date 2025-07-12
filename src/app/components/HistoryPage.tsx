@@ -74,7 +74,7 @@ export default function HistoryPage({ onBack, onNavigateToMore }: HistoryPagePro
                 <path d="M15 18L9 12L15 6" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">Historial</h1>
+            <h1 className="text-xl font-semibold text-[#1C2317]">Historial</h1>
           </div>
         </header>
 
@@ -82,7 +82,7 @@ export default function HistoryPage({ onBack, onNavigateToMore }: HistoryPagePro
         <section className="history-content">
           {/* Today Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-medium text-gray-600 mb-3 px-4">Today</h3>
+            <h3 className="text-lg font-medium text-gray-600 mb-3 px-4">Hoy</h3>
             
             <div className="px-4 mb-3">
               <button 
@@ -117,7 +117,7 @@ export default function HistoryPage({ onBack, onNavigateToMore }: HistoryPagePro
 
           {/* Yesterday Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-medium text-gray-600 mb-3 px-4">Yesterday</h3>
+            <h3 className="text-lg font-medium text-gray-600 mb-3 px-4">Ayer</h3>
             
             <div className="px-4 mb-3">
               <button 
@@ -194,13 +194,13 @@ export default function HistoryPage({ onBack, onNavigateToMore }: HistoryPagePro
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
               </svg>
-              <span className="text-xs">Home</span>
+              <span className="text-xs">Inicio</span>
             </button>
             <button className="flex flex-col items-center gap-1 py-2 px-6 text-[#2A906F]">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
               </svg>
-              <span className="text-xs">History</span>
+              <span className="text-xs">Historial</span>
             </button>
             
             <button
@@ -210,7 +210,7 @@ export default function HistoryPage({ onBack, onNavigateToMore }: HistoryPagePro
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L9 7V9H3V11H21V9M4 13H20V22H4V13Z" />
               </svg>
-              <span className="text-xs">More</span>
+              <span className="text-xs">Más</span>
             </button>
           </div>
         </nav>

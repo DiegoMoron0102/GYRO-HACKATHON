@@ -19,7 +19,7 @@ export default function DepositPage({ onBack, onDepositBolivianos, onDepositCryp
               <path d="M15 18L9 12L15 6" stroke="#1C2317" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-[#1C2317]">Deposit</h1>
+          <h1 className="text-xl font-semibold text-[#1C2317]">Depositar</h1>
           <div className="w-10"></div>
         </header>
 
@@ -37,7 +37,7 @@ export default function DepositPage({ onBack, onDepositBolivianos, onDepositCryp
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-medium text-[#1C2317]">Deposit in Bolivianos</h3>
+                <h3 className="text-lg font-medium text-[#1C2317]">Depositar en Bolivianos</h3>
               </div>
             </div>
 
@@ -46,7 +46,7 @@ export default function DepositPage({ onBack, onDepositBolivianos, onDepositCryp
               onClick={onDepositBolivianos}
               className="w-full bg-[#2A906F] text-white py-3 rounded-3xl font-medium hover:bg-[#1F6B52] transition-colors mb-12"
             >
-              Deposit
+              Depositar
             </button>
           </div>
 
@@ -67,7 +67,7 @@ export default function DepositPage({ onBack, onDepositBolivianos, onDepositCryp
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-medium text-[#1C2317]">Deposit in Cryptocurrencies</h3>
+                <h3 className="text-lg font-medium text-[#1C2317]">Depositar en Criptomonedas</h3>
               </div>
             </div>
 
@@ -76,7 +76,7 @@ export default function DepositPage({ onBack, onDepositBolivianos, onDepositCryp
               onClick={onDepositCrypto}
               className="w-full bg-[#2A906F] text-white py-3 rounded-3xl font-medium hover:bg-[#1F6B52] transition-colors"
             >
-              Deposit
+              Depositar
             </button>
           </div>
         </section>
