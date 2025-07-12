@@ -55,6 +55,65 @@ main {
   padding: 24px;
 }
 
+/* Dashboard específico - anular estilos globales */
+.dashboard-container {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.dashboard-container main {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Asegurar que el dashboard ocupe toda la pantalla */
+.dashboard-full-screen {
+  width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  background: white;
+}
+
+.dashboard-main {
+  width: 100%;
+  max-width: 360px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Sección verde que ocupa todo el ancho */
+.dashboard-top-section {
+  background: #2A906F;
+  color: white;
+  padding: 48px 16px 24px 16px;
+  width: 100%;
+  margin: 0;
+}
+
+/* Sección de contenido blanco */
+.dashboard-content {
+  flex: 1;
+  padding: 24px 16px;
+  background: white;
+  margin: 0;
+}
+
+/* Navegación inferior */
+.dashboard-nav {
+  background: white;
+  padding: 8px 16px;
+  border-top: 1px solid #e5e7eb;
+  margin: 0;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

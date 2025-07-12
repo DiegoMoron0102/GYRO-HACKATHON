@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import CorbadoWrapper from "./components/CorbadoWrapper";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "GYRO App",
-  description: "Aplicación GYRO",
+  title: "GYRO Wallet",
+  description: "Secure digital wallet with biometric authentication",
 };
 
 export default function RootLayout({
@@ -13,8 +17,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>
-        {children}
+      <body className={inter.className}>
+        <CorbadoWrapper>
+          {children}
+        </CorbadoWrapper>
       </body>
     </html>
   );
