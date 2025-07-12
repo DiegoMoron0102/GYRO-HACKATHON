@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
+import Image from "next/image";
+
 
 interface KYCModalProps {
   isOpen: boolean;
@@ -11,10 +13,15 @@ interface KYCModalProps {
 
 export default function KYCModal({ isOpen, onClose, onComplete, transactionType }: KYCModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isLoadingCamera, setIsLoadingCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  if (!isOpen) return null;
-
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -22,21 +29,199 @@ export default function KYCModal({ isOpen, onClose, onComplete, transactionType 
       localStorage.setItem("kyc_completed", "true");
       onComplete();
     }
-  };
+  }, [currentStep, onComplete]);
 
-  const handleCapture = () => {
-    // Simular captura de foto
-    setTimeout(() => {
-      handleNext();
-    }, 1000);
-  };
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    setIsLoadingCamera(true);
+    setCameraError(null);
+
+    try {
+      console.log('Iniciando proceso de cámara...');
+      
+      // Verificar si estamos en un entorno que soporta getUserMedia
+      if (!navigator.mediaDevices) {
+        throw new Error('MediaDevices no está disponible');
+      }
+      
+      if (!navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia no está disponible');
+      }
+
+      console.log('MediaDevices disponible, solicitando permisos...');
+
+      // Configuraciones de cámara más específicas para mejor calidad
+      const constraints = [
+        // Primero intentar con cámara trasera y alta calidad
+        {
+          video: {
+            facingMode: { exact: 'environment' },
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 30 }
+          }
+        },
+        // Si falla, intentar con cualquier cámara trasera
+        {
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
+          }
+        },
+        // Si falla, usar la cámara frontal
+        {
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
+          }
+        },
+        // Configuración básica con buena calidad
+        {
+          video: {
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+            frameRate: { ideal: 30 }
+          }
+        },
+        // Configuración mínima
+        {
+          video: true
+        }
+      ];
+
+      let stream = null;
+      let lastError = null;
+
+      for (const constraint of constraints) {
+        try {
+          console.log('Intentando configuración:', constraint);
+          stream = await navigator.mediaDevices.getUserMedia(constraint);
+          console.log('Stream obtenido exitosamente');
+          break;
+        } catch (error) {
+          console.log('Configuración falló:', constraint, error);
+          lastError = error;
+          continue;
+        }
+      }
+
+      if (!stream) {
+        throw lastError || new Error('No se pudo acceder a ninguna cámara');
+      }
+      
+      streamRef.current = stream;
+      
+      // Mostrar la vista de cámara inmediatamente
+      setShowCamera(true);
+      setIsLoadingCamera(false);
+      
+      // Esperar un poco para que el DOM se actualice
+      setTimeout(async () => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.setAttribute('webkit-playsinline', 'true');
+          try {
+            await videoRef.current.play();
+            console.log('Video iniciado correctamente');
+          } catch (playError) {
+            console.error('Error al reproducir video:', playError);
+            // Intentar reproducir sin audio
+            videoRef.current.muted = true;
+            await videoRef.current.play();
+          }
+        }
+      }, 100);
+    } catch (error: unknown) {
+      console.error('Error accessing camera:', error);
+      let errorMessage = 'No se pudo acceder a la cámara.';
+      
+      if (error instanceof Error) {
+        console.error('Error name:', error.name, 'Message:', error.message);
+        
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Permisos de cámara denegados. Por favor, permite el acceso a la cámara en la configuración del navegador o de la aplicación.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No se encontró ninguna cámara en este dispositivo.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage = 'La cámara no es compatible con este navegador.';
+        } else if (error.name === 'NotReadableError') {
+          errorMessage = 'La cámara está siendo usada por otra aplicación.';
+        } else if (error.name === 'AbortError') {
+          errorMessage = 'El acceso a la cámara fue interrumpido.';
+        } else if (error.name === 'OverconstrainedError') {
+          errorMessage = 'Las configuraciones de cámara solicitadas no son compatibles.';
+        } else {
+          errorMessage = `Error de cámara: ${error.message}`;
+        }
+      }
+      
+      setCameraError(errorMessage);
+      setIsLoadingCamera(false);
+    }
+  }, []);
+
+  const capturePhoto = useCallback(() => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0);
+        
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setCapturedImage(imageDataUrl);
+        
+        stopCamera();
+        
+        // Continuar al siguiente paso después de capturar
+        setTimeout(() => {
+          setCapturedImage(null);
+          handleNext();
+        }, 2000);
+      }
+    }
+  }, [stopCamera, handleNext]);
+
+  const handleCapture = useCallback(() => {
+    setCameraError(null);
+    startCamera();
+  }, [startCamera]);
+
+  const handleClose = useCallback(() => {
+    stopCamera();
+    onClose();
+  }, [stopCamera, onClose]);
+
+  // Limpiar la cámara cuando se cierre el modal
+  React.useEffect(() => {
+    if (!isOpen) {
+      stopCamera();
+    }
+  }, [isOpen, stopCamera]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
       <div className="bg-white w-full max-w-[360px] h-screen flex flex-col">
         {/* Header */}
         <header className="flex items-center justify-between p-4 border-b">
-          <button onClick={onClose} className="p-2">
+          <button onClick={handleClose} className="p-2">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M15 18L9 12L15 6" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -55,6 +240,100 @@ export default function KYCModal({ isOpen, onClose, onComplete, transactionType 
           </div>
           <p className="text-xs text-gray-500 mt-1">Paso {currentStep} de 5</p>
         </div>
+
+        {/* Camera View */}
+        {showCamera && (
+          <div className="fixed inset-0 bg-black z-60 flex flex-col">
+            <div className="flex-1 relative overflow-hidden">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                autoPlay={true}
+                playsInline={true}
+                muted={true}
+                style={{
+                  transform: 'scaleX(1)', // Efecto espejo para mejor UX
+                  filter: 'none',
+                  imageRendering: 'auto'
+                }}
+                onLoadedMetadata={() => {
+                  console.log('Video metadata loaded');
+                  console.log('Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+                }}
+                onPlay={() => {
+                  console.log('Video started playing');
+                }}
+                onError={(e) => {
+                  console.error('Video error:', e);
+                }}
+              />
+              
+              {/* Camera overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="relative">
+                  {/* Guía rectangular para el carnet */}
+                  <div className="w-80 h-52 border-2 border-white rounded-lg relative bg-transparent">
+                    {/* Esquinas para mejor guía visual */}
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-white"></div>
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-white"></div>
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-white"></div>
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-white"></div>
+                  </div>
+                  {/* Texto de instrucción */}
+                  <div className="absolute -top-12 left-0 right-0 text-center">
+                    <p className="text-white text-sm font-medium drop-shadow-lg">
+                      {currentStep === 3 ? "Anverso del carnet" : "Reverso del carnet"}
+                    </p>
+                    <p className="text-white text-xs mt-1 opacity-80 drop-shadow-lg">
+                      Coloca tu carnet dentro del marco
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Header con botón de cerrar */}
+              <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
+                <button
+                  onClick={stopCamera}
+                  className="bg-black/50 text-white p-2 rounded-full backdrop-blur-sm"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Camera controls */}
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center">
+                <button
+                  onClick={capturePhoto}
+                  className="bg-white p-4 rounded-full shadow-lg border-4 border-gray-300 hover:border-gray-400 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gray-400 rounded-full"></div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Captured Image Preview */}
+        {capturedImage && (
+          <div className="fixed inset-0 bg-black z-60 flex items-center justify-center">
+            <div className="text-center">
+              <Image 
+                src={capturedImage} 
+                alt="Captured" 
+                width={320} 
+                height={240} 
+                className="rounded-lg mb-4" 
+              />
+              <p className="text-white text-lg">Foto capturada correctamente</p>
+              <div className="flex justify-center mt-4">
+                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 p-6 flex flex-col justify-center items-center text-center">
@@ -184,19 +463,70 @@ export default function KYCModal({ isOpen, onClose, onComplete, transactionType 
           )}
         </div>
 
+        {/* Camera Error Modal */}
+        {cameraError && (
+          <div className="fixed inset-0 bg-black/75 z-70 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <path d="M16 28C22.6274 28 28 22.6274 28 16C28 9.37258 22.6274 4 16 4C9.37258 4 4 9.37258 4 16C4 22.6274 9.37258 28 16 28Z" stroke="#EF4444" strokeWidth="2"/>
+                    <path d="M16 12V18M16 22H16.01" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Error de Cámara</h3>
+                <p className="text-gray-600 mb-6 text-sm">{cameraError}</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setCameraError(null);
+                      startCamera();
+                    }}
+                    className="w-full bg-[#2A906F] text-white py-2 rounded-lg font-medium"
+                  >
+                    Intentar de nuevo
+                  </button>
+                  <button
+                    onClick={() => setCameraError(null)}
+                    className="w-full text-gray-500 py-2 font-medium"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading Camera */}
+        {isLoadingCamera && (
+          <div className="fixed inset-0 bg-black/75 z-70 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-6 text-center">
+              <div className="w-12 h-12 border-4 border-[#2A906F] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600">Iniciando cámara...</p>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="p-6">
           {(currentStep === 3 || currentStep === 4) ? (
-            <button
-              onClick={handleCapture}
-              className="w-full bg-[#2A906F] text-white py-3 rounded-lg font-medium hover:bg-[#1F6B52] transition-colors flex items-center justify-center gap-2"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 13.75A3.75 3.75 0 1 0 10 6.25a3.75 3.75 0 0 0 0 7.5Z" stroke="white" strokeWidth="1.5"/>
-                <path d="M2.5 6.25h2.083L6.25 3.75h7.5l1.667 2.5H17.5a1.25 1.25 0 0 1 1.25 1.25v8.75a1.25 1.25 0 0 1-1.25 1.25H2.5a1.25 1.25 0 0 1-1.25-1.25V7.5a1.25 1.25 0 0 1 1.25-1.25Z" stroke="white" strokeWidth="1.5"/>
-              </svg>
-              Tomar Foto {currentStep === 3 ? "del Anverso" : "del Reverso"}
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={handleCapture}
+                disabled={isLoadingCamera}
+                className="w-full bg-[#2A906F] text-white py-3 rounded-lg font-medium hover:bg-[#1F6B52] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 13.75A3.75 3.75 0 1 0 10 6.25a3.75 3.75 0 0 0 0 7.5Z" stroke="white" strokeWidth="1.5"/>
+                  <path d="M2.5 6.25h2.083L6.25 3.75h7.5l1.667 2.5H17.5a1.25 1.25 0 0 1 1.25 1.25v8.75a1.25 1.25 0 0 1-1.25 1.25H2.5a1.25 1.25 0 0 1-1.25-1.25V7.5a1.25 1.25 0 0 1 1.25-1.25Z" stroke="white" strokeWidth="1.5"/>
+                </svg>
+                {isLoadingCamera ? 'Iniciando...' : 'Abrir Cámara'}
+              </button>
+              <p className="text-xs text-gray-500 text-center">
+                Se solicitarán permisos de cámara la primera vez
+              </p>
+            </div>
           ) : (
             <button
               onClick={handleNext}
@@ -210,14 +540,18 @@ export default function KYCModal({ isOpen, onClose, onComplete, transactionType 
           
           {currentStep < 5 && (
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="w-full text-gray-500 py-3 mt-2 font-medium"
             >
               Cancelar
             </button>
           )}
         </div>
+
+        {/* Hidden canvas for image capture */}
+        <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>
   );
 }
+

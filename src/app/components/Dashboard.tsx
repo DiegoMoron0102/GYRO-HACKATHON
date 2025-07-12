@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import TransactionDetailModal from "./TransactionDetailModal";
-import KYCModal from "./KYCModal";
 
 interface User {
   id: number;
@@ -29,13 +28,13 @@ interface DashboardProps {
   onNavigateToHistory?: () => void;
   onNavigateToMore?: () => void;
   onNavigateToSettings?: () => void;
+  onNavigateToDeposit?: () => void;
+  onNavigateToWithdraw?: () => void;
 }
 
-export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore, onNavigateToSettings }: DashboardProps) {
+export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore, onNavigateToSettings, onNavigateToDeposit, onNavigateToWithdraw }: DashboardProps) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showKYCModal, setShowKYCModal] = useState(false);
-  const [kycTransactionType, setKYCTransactionType] = useState<"deposito" | "retiro">("deposito");
 
   const transactions: Transaction[] = [
     {
@@ -75,30 +74,6 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedTransaction(null);
-  };
-
-  const checkKYCAndProceed = (transactionType: "deposito" | "retiro") => {
-    const kycCompleted = localStorage.getItem("kyc_completed");
-    
-    if (!kycCompleted) {
-      setKYCTransactionType(transactionType);
-      setShowKYCModal(true);
-    } else {
-      // Proceder directamente con la transacción
-      proceedWithTransaction(transactionType);
-    }
-  };
-
-  const proceedWithTransaction = (transactionType: "deposito" | "retiro") => {
-    // Aquí iría la lógica para abrir el modal de depósito o retiro
-    console.log(`Proceeding with ${transactionType}`);
-    // Por ahora solo mostrar un alert
-    alert(`Procesando ${transactionType}...`);
-  };
-
-  const handleKYCComplete = () => {
-    setShowKYCModal(false);
-    proceedWithTransaction(kycTransactionType);
   };
 
   // Debug function to clear KYC status
@@ -158,7 +133,14 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
             <div className="flex justify-center gap-6">
               <button 
                 className="flex flex-col items-center gap-2"
-                onClick={() => checkKYCAndProceed("deposito")}
+                onClick={() => {
+                  console.log('Deposit button clicked');
+                  if (onNavigateToDeposit) {
+                    onNavigateToDeposit();
+                  } else {
+                    console.error('onNavigateToDeposit is not defined');
+                  }
+                }}
               >
                 <div className="w-8 h-8 flex items-center justify-center">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -177,7 +159,14 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
 
               <button 
                 className="flex flex-col items-center gap-2"
-                onClick={() => checkKYCAndProceed("retiro")}
+                onClick={() => {
+                  console.log('Withdraw button clicked');
+                  if (onNavigateToWithdraw) {
+                    onNavigateToWithdraw();
+                  } else {
+                    console.error('onNavigateToWithdraw is not defined');
+                  }
+                }}
               >
                 <div className="w-8 h-8 flex items-center justify-center">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -373,14 +362,6 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
           </div>
         </nav>
 
-        {/* KYC Modal */}
-        <KYCModal
-          isOpen={showKYCModal}
-          onClose={() => setShowKYCModal(false)}
-          onComplete={handleKYCComplete}
-          transactionType={kycTransactionType}
-        />
-
         {/* Transaction Detail Modal */}
         {selectedTransaction && (
           <TransactionDetailModal
@@ -403,3 +384,4 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
     </div>
   );
 }
+

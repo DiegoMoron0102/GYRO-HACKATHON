@@ -202,6 +202,7 @@ export default function HistoryPage({ onBack, onNavigateToMore }: HistoryPagePro
               </svg>
               <span className="text-xs">History</span>
             </button>
+            
             <button
               className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400 hover:text-[#2A906F]"
               onClick={onNavigateToMore}

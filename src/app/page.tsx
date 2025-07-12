@@ -8,6 +8,14 @@ import Dashboard from "./components/Dashboard";
 import HistoryPage from "./components/HistoryPage";
 import MorePage from "./components/MorePage";
 import ProfileSettingsPage from "./components/ProfileSettingsPage";
+import KYCModal from "./components/KYCModal";
+import DepositPage from "./components/DepositPage";
+import DepositBolivianosPage from "./components/DepositBolivianosPage";
+import DepositQRPage from "./components/DepositQRPage";
+import DepositCryptoPage from "./components/DepositCryptoPage";
+import WithdrawPage from "./components/WithdrawPage";
+import WithdrawBolivianosPage from "./components/WithdrawBolivianosPage";
+import WithdrawCryptoPage from "./components/WithdrawCryptoPage";
 
 interface User {
   id: number;
@@ -20,10 +28,20 @@ interface User {
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<
-    "splash" | "auth" | "signup" | "dashboard" | "history" | "more" | "settings"
+    "splash" | "auth" | "signup" | "dashboard" | "history" | "more" | "settings" | "deposit"
   >("splash");
   const [user, setUser] = useState<User | null>(null);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const [showDepositPage, setShowDepositPage] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [showWithdrawPage, setShowWithdrawPage] = useState(false);
+  const [showDepositBolivianosPage, setShowDepositBolivianosPage] = useState(false);
+  const [showDepositQRPage, setShowDepositQRPage] = useState(false);
+  const [showDepositCryptoPage, setShowDepositCryptoPage] = useState(false);
+  const [showWithdrawBolivianosPage, setShowWithdrawBolivianosPage] = useState(false);
+  const [showWithdrawCryptoPage, setShowWithdrawCryptoPage] = useState(false);
+  const [kycTransactionType, setKycTransactionType] = useState<"deposito" | "retiro" | null>(null);
+  const [depositData, setDepositData] = useState<{amount: number, reference?: string, currency?: string, cryptocurrency?: string} | null>(null);
 
   // Auto-logout después de 3 minutos de inactividad
   const AUTO_LOGOUT_TIME = 3 * 60 * 1000; // 3 minutos en millisegundos
@@ -114,6 +132,47 @@ export default function Home() {
     setCurrentView("signup");
   };
 
+  const handleDeposit = () => {
+    // Check if KYC is completed
+    if (typeof window !== 'undefined') {
+      const kycCompleted = localStorage.getItem("kyc_completed");
+      if (!kycCompleted) {
+        setKycTransactionType("deposito");
+        setShowKycModal(true);
+        return;
+      }
+    }
+    
+    // If KYC is completed, go to deposit page
+    setShowDepositPage(true);
+  };
+
+  const handleWithdraw = () => {
+    // Check if KYC is completed
+    if (typeof window !== 'undefined') {
+      const kycCompleted = localStorage.getItem("kyc_completed");
+      if (!kycCompleted) {
+        setKycTransactionType("retiro");
+        setShowKycModal(true);
+        return;
+      }
+    }
+    
+    // If KYC is completed, go to withdraw page
+    setShowWithdrawPage(true);
+  };
+
+  const handleKycComplete = () => {
+    setShowKycModal(false);
+    if (kycTransactionType === "deposito") {
+      setShowDepositPage(true);
+    } else if (kycTransactionType === "retiro") {
+      setShowWithdrawPage(true);
+    }
+    // Reset KYC transaction type
+    setKycTransactionType(null);
+  };
+
   // Add function to clear all data for testing
   const clearAllData = () => {
     localStorage.removeItem("gyro_user");
@@ -202,6 +261,149 @@ export default function Home() {
     );
   }
 
+  // Show deposit page
+  if (showDepositPage && user) {
+    return (
+      <div className="deposit-container">
+        <DepositPage
+          onBack={() => {
+            setShowDepositPage(false);
+            setCurrentView("dashboard");
+          }}
+          onDepositBolivianos={() => {
+            setShowDepositPage(false);
+            setShowDepositBolivianosPage(true);
+          }}
+          onDepositCrypto={() => {
+            setShowDepositPage(false);
+            setShowDepositCryptoPage(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show deposit bolivianos page
+  if (showDepositBolivianosPage && user) {
+    return (
+      <div className="deposit-bolivianos-container">
+        <DepositBolivianosPage
+          onBack={() => {
+            setShowDepositBolivianosPage(false);
+            setShowDepositPage(true);
+          }}
+          onConfirmDeposit={(amount, reference) => {
+            setDepositData({ amount, reference, currency: "BOB" });
+            setShowDepositBolivianosPage(false);
+            setShowDepositQRPage(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show deposit crypto page
+  if (showDepositCryptoPage && user) {
+    return (
+      <div className="deposit-crypto-container">
+        <DepositCryptoPage
+          onBack={() => {
+            setShowDepositCryptoPage(false);
+            setShowDepositPage(true);
+          }}
+          onConfirmDeposit={(cryptocurrency, amount) => {
+            setDepositData({ amount, cryptocurrency });
+            setShowDepositCryptoPage(false);
+            setShowDepositQRPage(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show deposit QR page
+  if (showDepositQRPage && user && depositData) {
+    return (
+      <div className="deposit-qr-container">
+        <DepositQRPage
+          onBack={() => {
+            setShowDepositQRPage(false);
+            setDepositData(null);
+            setCurrentView("dashboard");
+          }}
+          amount={depositData.amount}
+          reference={depositData.reference}
+          currency={depositData.currency}
+          cryptocurrency={depositData.cryptocurrency}
+        />
+      </div>
+    );
+  }
+
+  // Show withdraw crypto page
+  if (showWithdrawCryptoPage && user) {
+    return (
+      <div className="withdraw-crypto-container">
+        <WithdrawCryptoPage
+          onBack={() => {
+            setShowWithdrawCryptoPage(false);
+            setShowWithdrawPage(true);
+          }}
+          onConfirmWithdraw={(cryptocurrency, amount, walletAddress) => {
+            // TODO: Implement crypto withdrawal logic
+            console.log('Confirming crypto withdrawal:', { cryptocurrency, amount, walletAddress });
+            alert(`Retiro confirmado: ${amount} USDT a ${cryptocurrency} (${walletAddress.slice(0, 10)}...)`);
+            setShowWithdrawCryptoPage(false);
+            setCurrentView("dashboard");
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show withdraw bolivianos page
+  if (showWithdrawBolivianosPage && user) {
+    return (
+      <div className="withdraw-bolivianos-container">
+        <WithdrawBolivianosPage
+          onBack={() => {
+            setShowWithdrawBolivianosPage(false);
+            setShowWithdrawPage(true);
+          }}
+          onConfirmWithdraw={(amount, bankAccount) => {
+            // TODO: Implement bolivianos withdrawal logic
+            console.log('Confirming bolivianos withdrawal:', { amount, bankAccount });
+            alert(`Retiro confirmado: ${amount} USDT a cuenta ${bankAccount}`);
+            setShowWithdrawBolivianosPage(false);
+            setCurrentView("dashboard");
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show withdraw page
+  if (showWithdrawPage && user) {
+    return (
+      <div className="withdraw-container">
+        <WithdrawPage
+          onBack={() => {
+            setShowWithdrawPage(false);
+            setCurrentView("dashboard");
+          }}
+          onWithdrawBolivianos={() => {
+            setShowWithdrawPage(false);
+            setShowWithdrawBolivianosPage(true);
+          }}
+          onWithdrawCrypto={() => {
+            setShowWithdrawPage(false);
+            setShowWithdrawCryptoPage(true);
+          }}
+        />
+      </div>
+    );
+  }
+
   // Show dashboard if authenticated
   if (currentView === "dashboard" && user) {
     return (
@@ -212,7 +414,19 @@ export default function Home() {
           onNavigateToHistory={() => setCurrentView("history")}
           onNavigateToMore={() => setCurrentView("more")}
           onNavigateToSettings={() => setCurrentView("settings")}
+          onNavigateToDeposit={handleDeposit}
+          onNavigateToWithdraw={handleWithdraw}
         />
+        
+        {/* KYC Modal */}
+        {showKycModal && kycTransactionType && (
+          <KYCModal
+            isOpen={showKycModal}
+            onClose={() => setShowKycModal(false)}
+            onComplete={handleKycComplete}
+            transactionType={kycTransactionType}
+          />
+        )}
       </div>
     );
   }
