@@ -157,6 +157,13 @@ export default function QRScannerPage({ onBack, onQRScanned }: QRScannerPageProp
     }
   }, []);
 
+  const handleQRDetected = useCallback((data: string) => {
+    console.log('QR detectado:', data);
+    setIsScanning(false);
+    stopCamera();
+    onQRScanned?.(data);
+  }, [stopCamera, onQRScanned]);
+
   const startQRDetection = useCallback(() => {
     console.log('Iniciando detección QR...');
     setIsScanning(true);
@@ -166,14 +173,7 @@ export default function QRScannerPage({ onBack, onQRScanned }: QRScannerPageProp
       const mockQRData = "bank:Banco Nacional:1234567890:Cuenta de Ahorros";
       handleQRDetected(mockQRData);
     }, 3000);
-  }, []);
-
-  const handleQRDetected = useCallback((data: string) => {
-    console.log('QR detectado:', data);
-    setIsScanning(false);
-    stopCamera();
-    onQRScanned?.(data);
-  }, [stopCamera, onQRScanned]);
+  }, [handleQRDetected]);
 
   const handleCapture = useCallback(() => {
     setCameraError(null);
@@ -364,4 +364,3 @@ export default function QRScannerPage({ onBack, onQRScanned }: QRScannerPageProp
     </div>
   );
 }
-        

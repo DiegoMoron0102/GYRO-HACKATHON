@@ -160,6 +160,7 @@ export default function ProfileSettingsPage({ user, onBack }: ProfileSettingsPag
               </div>
             ))}
           </div>
+
         </section>
       </main>
     </div>

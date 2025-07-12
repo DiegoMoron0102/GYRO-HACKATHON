@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import TransactionDetailModal from "./TransactionDetailModal";
+import { checkAccountExists } from "../lib/stellar";
+import { getPublicKey } from "../lib/keys";
+//import * as Client from "../../../packages/user";
 
+/* ───────── Tipos ───────── */
 interface User {
   id: number;
   name: string;
@@ -24,18 +28,76 @@ interface Transaction {
 
 interface DashboardProps {
   user: User;
-  onLogout?: () => void;
-  onNavigateToHistory?: () => void;
-  onNavigateToMore?: () => void;
-  onNavigateToSettings?: () => void;
-  onNavigateToDeposit?: () => void;
-  onNavigateToWithdraw?: () => void;
+  onLogout: () => void;
+  onNavigateToHistory: () => void;
+  onNavigateToMore: () => void;
+  onNavigateToSettings: () => void;
+  onNavigateToDeposit: () => void;
+  onNavigateToWithdraw: () => void;
+  onNavigateToQRScanner: () => void;
+  onNavigateToDepositQR: () => void;
 }
 
-export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore, onNavigateToSettings, onNavigateToDeposit, onNavigateToWithdraw }: DashboardProps) {
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+/* ───────── Fake conversión XLM→USDC para MVP ───────── */
+const fakeUsdBalance = (xlmNum: number): number =>
+  Math.max(0, xlmNum - 9_999); // friendbot 10 000 XLM → 1 USDC
 
+/* ───────── Componente ───────── */
+export default function Dashboard({
+  user,
+  onNavigateToHistory,
+  onNavigateToMore,
+  onNavigateToSettings,
+  onNavigateToDeposit,
+  onNavigateToWithdraw,
+  onNavigateToQRScanner,
+  onNavigateToDepositQR,
+}: DashboardProps) {
+  /* ---------- estado ---------- */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [xlmBalance, setXlmBalance] = useState<string | null>(null);
+  const [usdBalance, setUsdBalance] = useState<number | null>(null);
+  const [accountReady, setAccountReady] = useState<boolean>(false);
+
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  /* ---------- consulta Horizon ---------- */
+  useEffect(() => {
+    let cancel = false;
+
+    (async () => {
+      try {
+        const pubKey =
+(user as { stellarPublicKey?: string }).stellarPublicKey ??
+(await getPublicKey());        
+    if (!pubKey) return;
+
+        const { exists, balance } = await checkAccountExists(pubKey);
+
+        if (cancel) return; // componente desmontado
+
+        setAccountReady(exists);
+        if (exists) {
+          setXlmBalance(balance); // texto “9999.12345”
+          setUsdBalance(fakeUsdBalance(parseFloat(balance)));
+        } else {
+          setXlmBalance(null);
+          setUsdBalance(null);
+        }
+      } catch (err) {
+        console.error("Error Horizon:", err);
+      }
+    })();
+
+    return () => {
+      cancel = true;
+    };
+  }, [user]);
+
+  /* ---------- dummy transacciones ---------- */
   const transactions: Transaction[] = [
     {
       id: "1",
@@ -44,43 +106,45 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
       merchant: "Retiro",
       date: "Junio 26, 2024",
       time: "12:32",
-      transactionNumber: "23010412432431"
+      transactionNumber: "23010412432431",
     },
     {
-      id: "2", 
+      id: "2",
       type: "transferencia",
-      amount: 430.00,
+      amount: 430.0,
       merchant: "De Diego",
       date: "Junio 25, 2024",
       time: "02:15",
-      transactionNumber: "23010412432432"
+      transactionNumber: "23010412432432",
     },
     {
       id: "3",
-      type: "retiro", 
-      amount: -19.00,
+      type: "retiro",
+      amount: -19.0,
       merchant: "Retiro",
-      date: "Diciembre 24, 2024",
+      date: "Dic 24, 2024",
       time: "14:05",
-      transactionNumber: "23010412432433"
-    }
+      transactionNumber: "23010412432433",
+    },
   ];
 
-  const handleTransactionClick = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
+  /* ---------- helpers ---------- */
+  const handleTransactionClick = (t: Transaction) => {
+    setSelectedTransaction(t);
     setIsModalOpen(true);
   };
-
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedTransaction(null);
+    
   };
 
-  // Debug function to clear KYC status
+  /* ---------- DEBUG ---------- */
   const clearKYCStatus = () => {
     localStorage.removeItem("kyc_completed");
-    alert("Estado KYC limpiado. El próximo depósito/retiro solicitará verificación.");
+    alert("Estado KYC limpiado.");
   };
+
 
   return (
     <div className="dashboard-full-screen">
@@ -123,11 +187,21 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
             </button>
           </div>
 
+
+          
           {/* Balance Card */}
           <div className="bg-gradient-to-br from-[#2A906F] to-[#1F6B52] rounded-2xl p-6">
             <div className="text-center mb-6">
               <p className="text-sm opacity-75 mb-1">Saldo</p>
-              <p className="text-4xl font-bold">$14,235.34</p>
+              {accountReady ? (
+                  <p className="text-4xl font-bold">
+                    {usdBalance !== null ? `${usdBalance.toFixed(2)} USDC` : "…"}
+                  </p>
+                ) : (
+                  <p className="text-base font-medium text-yellow-200">
+                    Cuenta sin activar
+                  </p>
+                )}
             </div>
 
             <div className="flex justify-center gap-6">
@@ -143,13 +217,9 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
                 }}
               >
                 <div className="w-8 h-8 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M8 2L8 14M2 8L14 8"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <polyline points="19,12 12,5 5,12"/>
                   </svg>
                 </div>
                 <span className="text-sm">Depositar</span>
@@ -169,13 +239,9 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
                 }}
               >
                 <div className="w-8 h-8 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M8 14L8 2M14 8L2 8"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <line x1="12" y1="19" x2="12" y2="5"/>
+                    <polyline points="5,12 12,19 19,12"/>
                   </svg>
                 </div>
                 <span className="text-sm">Retirar</span>
@@ -331,33 +397,73 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
           </div>
         </section>
 
-        {/* Navigation */}
-        <nav className="dashboard-nav">
-          <div className="flex justify-between">
-            <button className="flex flex-col items-center gap-1 py-2 px-6 text-[#2A906F]">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+        {/* Bottom Navigation */}
+        <nav className="bg-white border-t border-gray-100 px-4 py-4">
+          <div className="flex items-center justify-around relative">
+            {/* Home */}
+            <button 
+              onClick={() => {/* Ya estamos en home */}}
+              className="flex flex-col items-center p-2 text-[#2A906F]"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9,22 9,12 15,12 15,22"/>
               </svg>
-              <span className="text-xs">Inicio</span>
+              <span className="text-xs mt-1">Inicio</span>
             </button>
+
+            {/* History */}
             <button 
               onClick={onNavigateToHistory}
-              className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400 hover:text-[#2A906F]"
+              className="flex flex-col items-center p-2 text-gray-500 hover:text-[#2A906F] transition-colors"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12,6 12,12 16,14"/>
               </svg>
-              <span className="text-xs">Historial</span>
+              <span className="text-xs mt-1">Historial</span>
             </button>
-            
-            <button
-              className="flex flex-col items-center gap-1 py-2 px-6 text-gray-400 hover:text-[#2A906F]"
-              onClick={onNavigateToMore}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L9 7V9H3V11H21V9M4 13H20V22H4V13Z" />
+
+            {/* Central QR Button - MUCH LARGER */}
+            <button 
+              onClick={() => setShowQRModal(true)}
+              className="w-16 h-16 bg-[#10B981] rounded-full flex items-center justify-center mr-4 ring-2 ring-white/70"            >
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="3" height="3" rx="1" />
+                <rect x="19" y="19" width="2" height="2" rx="1" />
+                <rect x="14" y="19" width="3" height="2" rx="1" />
+                <rect x="19" y="14" width="2" height="3" rx="1" />
               </svg>
-              <span className="text-xs">Más</span>
+            </button>
+
+            
+
+            {/* Settings */}
+            <button 
+              onClick={onNavigateToSettings}
+              className="flex flex-col items-center p-2 text-gray-500 hover:text-[#2A906F] transition-colors"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span className="text-xs mt-1">Ajustes</span>
+            </button>
+
+            {/* More */}
+            <button 
+              onClick={onNavigateToMore}
+              className="flex flex-col items-center p-2 text-gray-500 hover:text-[#2A906F] transition-colors"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="1"/>
+                <circle cx="19" cy="12" r="1"/>
+                <circle cx="5" cy="12" r="1"/>
+              </svg>
+              <span className="text-xs mt-1">Más</span>
             </button>
           </div>
         </nav>
@@ -371,6 +477,70 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
           />
         )}
 
+        {/* QR Options Modal */}
+        {showQRModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+            <div className="bg-white w-full rounded-t-3xl p-6 animate-slide-up">
+              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6"></div>
+              
+              <h3 className="text-xl font-semibold text-center text-[#1C2317] mb-6">
+                Opciones QR
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Generate Deposit QR */}
+                <button
+                  onClick={() => {
+                    setShowQRModal(false);
+                    onNavigateToDepositQR();
+                  }}
+                  className="w-full flex items-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <polyline points="19,12 12,5 5,12"/>
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <h4 className="font-semibold text-[#1C2317]">Generar QR de depósito</h4>
+                    <p className="text-sm text-gray-500">Crear código QR para recibir pagos</p>
+                  </div>
+                </button>
+
+                {/* Scan QR for Withdrawal */}
+                <button
+                  onClick={() => {
+                    setShowQRModal(false);
+                    onNavigateToQRScanner();
+                  }}
+                  className="w-full flex items-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                      <line x1="8" y1="21" x2="16" y2="21"/>
+                      <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <h4 className="font-semibold text-[#1C2317]">Escanear QR para retiro</h4>
+                    <p className="text-sm text-gray-500">Escanear código de cuenta bancaria</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Cancel Button */}
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="w-full mt-6 py-3 text-gray-500 font-medium"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Debug button for KYC testing - only show in development */}
         {process.env.NODE_ENV === 'development' && (
           <button
@@ -380,8 +550,26 @@ export default function Dashboard({ user, onNavigateToHistory, onNavigateToMore,
             Reset KYC
           </button>
         )}
+
+        <style jsx>{`
+          @keyframes slide-up {
+            from {
+              transform: translateY(100%);
+            }
+            to {
+              transform: translateY(0);
+            }
+          }
+
+          .animate-slide-up {
+            animation: slide-up 0.3s ease-out;
+          }
+
+          .shadow-3xl {
+            box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
+          }
+        `}</style>
       </main>
     </div>
   );
 }
-

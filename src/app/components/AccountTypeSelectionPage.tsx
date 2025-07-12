@@ -32,47 +32,41 @@ export default function AccountTypeSelectionPage({ onBack, onSelectBolivianos, o
             </div>
 
             {/* Bank Account Option */}
-            <button 
+            <button
               onClick={onSelectBolivianos}
-              className="w-full bg-white border border-gray-200 py-6 px-4 rounded-2xl hover:bg-gray-50 transition-colors"
+              className="w-full p-6 bg-white rounded-2xl border border-gray-200 hover:border-[#2A906F] hover:bg-gray-50 transition-all"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 9h18l-2-6H5l-2 6z" stroke="#1C2317" strokeWidth="1.5"/>
-                    <path d="M3 9v10a2 2 0 002 2h14a2 2 0 002-2V9" stroke="#1C2317" strokeWidth="1.5"/>
-                    <path d="M9 15h6" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round"/>
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6">
+                    <rect x="1" y="3" width="22" height="18" rx="2" ry="2" strokeWidth="2"/>
+                    <line x1="1" y1="9" x2="23" y2="9" strokeWidth="2"/>
                   </svg>
                 </div>
-                <div className="text-left flex-1">
+                <div className="text-left">
                   <h3 className="text-lg font-semibold text-[#1C2317]">Cuenta bancaria</h3>
                   <p className="text-sm text-gray-500">Retirar a bolivianos (BOB)</p>
                 </div>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M7 14l3-3-3-3" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
               </div>
             </button>
 
             {/* Crypto Wallet Option */}
-            <button 
+            <button
               onClick={onSelectCrypto}
-              className="w-full bg-white border border-gray-200 py-6 px-4 rounded-2xl hover:bg-gray-50 transition-colors"
+              className="w-full p-6 bg-white rounded-2xl border border-gray-200 hover:border-[#2A906F] hover:bg-gray-50 transition-all"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="#1C2317" strokeWidth="1.5"/>
-                    <path d="M8 12h8M12 8v8" stroke="#1C2317" strokeWidth="1.5"/>
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mr-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F97316">
+                    <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" strokeWidth="2"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17" strokeWidth="2"/>
                   </svg>
                 </div>
-                <div className="text-left flex-1">
+                <div className="text-left">
                   <h3 className="text-lg font-semibold text-[#1C2317]">Wallet cripto</h3>
                   <p className="text-sm text-gray-500">Retirar a criptomoneda</p>
                 </div>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M7 14l3-3-3-3" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
               </div>
             </button>
           </div>

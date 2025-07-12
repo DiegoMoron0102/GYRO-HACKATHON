@@ -13,8 +13,8 @@ export default function DepositPage({ onBack, onDepositBolivianos, onDepositCryp
     <div className="deposit-full-screen">
       <main className="deposit-main">
         {/* Header */}
-        <header className="flex items-center justify-between p-4 border-b bg-white">
-          <button onClick={onBack} className="p-2">
+        <header className="flex items-center justify-between p-4 bg-white border-b border-gray-100">
+          <button onClick={onBack} className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M15 18L9 12L15 6" stroke="#1C2317" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -24,59 +24,50 @@ export default function DepositPage({ onBack, onDepositBolivianos, onDepositCryp
         </header>
 
         {/* Content */}
-        <section className="flex-1 bg-white">
-          {/* Deposit in Bolivianos Section */}
-          <div className="px-4 py-6">
-            {/* Option Item */}
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M2 17L12 22L22 17" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M2 12L12 17L22 12" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-[#1C2317]">Depositar en Bolivianos</h3>
-              </div>
+        <section className="flex-1 bg-white p-4">
+          <div className="space-y-4">
+            <div className="text-center py-6">
+              <h2 className="text-lg font-semibold text-[#1C2317] mb-2">Elige tu método de depósito</h2>
+              <p className="text-gray-600 text-sm">Selecciona cómo quieres agregar fondos</p>
             </div>
 
-            {/* Deposit Button for Bolivianos */}
-            <button 
+            {/* Deposit in Bolivianos */}
+            <button
               onClick={onDepositBolivianos}
-              className="w-full bg-[#2A906F] text-white py-3 rounded-3xl font-medium hover:bg-[#1F6B52] transition-colors mb-12"
+              className="w-full p-6 bg-white rounded-2xl border border-gray-200 hover:border-[#2A906F] hover:bg-gray-50 transition-all"
             >
-              Depositar
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mr-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                    <line x1="1" y1="10" x2="23" y2="10"/>
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-[#1C2317]">Depositar en bolivianos</h3>
+                  <p className="text-sm text-gray-500">Transferencia bancaria en BOB</p>
+                </div>
+              </div>
             </button>
-          </div>
 
-          {/* Separator */}
-          <div className="h-1.5 bg-gray-50"></div>
-
-          {/* Deposit in Cryptocurrencies Section */}
-          <div className="px-4 py-6">
-            {/* Option Item */}
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="#1C2317" strokeWidth="1.5"/>
-                  <path d="M9.09 9A3 3 0 0 1 15 9" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M8 12H16" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M12 8V16" stroke="#1C2317" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-[#1C2317]">Depositar en Criptomonedas</h3>
-              </div>
-            </div>
-
-            {/* Deposit Button for Crypto */}
-            <button 
+            {/* Deposit in Crypto */}
+            <button
               onClick={onDepositCrypto}
-              className="w-full bg-[#2A906F] text-white py-3 rounded-3xl font-medium hover:bg-[#1F6B52] transition-colors"
+              className="w-full p-6 bg-white rounded-2xl border border-gray-200 hover:border-[#2A906F] hover:bg-gray-50 transition-all"
             >
-              Depositar
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mr-4">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <h3 className="text-lg font-semibold text-[#1C2317]">Depositar en criptomoneda</h3>
+                  <p className="text-sm text-gray-500">USDT o USDC</p>
+                </div>
+              </div>
             </button>
           </div>
         </section>

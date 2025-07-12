@@ -1,204 +1,148 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
+import { getPublicKey } from "../lib/keys";
 
-interface DepositQRPageProps {
+interface Props {
   onBack?: () => void;
   amount?: number;
   reference?: string;
   currency?: string;
   cryptocurrency?: string;
+  stellarPublicKey?: string;
 }
 
-export default function DepositQRPage({ onBack, amount, reference, currency = "BOB", cryptocurrency }: DepositQRPageProps) {
-  const [qrCodeImage, setQrCodeImage] = useState<string>("");
-  const [includeAmount, setIncludeAmount] = useState<boolean>(!!amount);
+export default function DepositQRPage({
+  onBack,
+  amount = 0,
+  reference,
+  currency = "BOB",
+  cryptocurrency,
+  stellarPublicKey,
+}: Props) {
+  /* ───────── estado ───────── */
+  const [pubKey, setPubKey] = useState<string | null>(null);
+  const [includeAmt, setInc] = useState<boolean>(amount > 0);
+  const [amountVal, setAmt] = useState<number>(amount);
+  const [qrImg, setQrImg] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
-  // Wallet addresses for different cryptocurrencies
-  const getWalletAddress = () => {
-    const walletAddresses = {
-      USDT: "TYASr5UV6HEcXatwdFQfmLVUqQQQMUxHLS",
-      BTC: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-      ETH: "0x742d35Cc6634C0532925a3b8D45Eb3f5C6BcA7E9",
-      BNB: "bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23",
-      BOB: "TYASr5UV6HEcXatwdFQfmLVUqQQQMUxHLS" // Default for Bolivianos
-    };
-    
-    return walletAddresses[cryptocurrency as keyof typeof walletAddresses] || walletAddresses.BOB;
-  };
+  /* sync prop→state si cambia la prop amount */
+  useEffect(() => setAmt(amount), [amount]);
 
-  const walletAddress = getWalletAddress();
-
-  // Generate QR code data
-  const generateQRData = useCallback(() => {
-    let qrData = walletAddress;
-    
-    if (includeAmount && amount) {
-      // Add amount to QR for specific payment
-      const displayCurrency = cryptocurrency || currency;
-      qrData = `${walletAddress}?amount=${amount}&currency=${displayCurrency}`;
-      if (reference) {
-        qrData += `&memo=${encodeURIComponent(reference)}`;
-      }
-    }
-    
-    return qrData;
-  }, [walletAddress, includeAmount, amount, cryptocurrency, currency, reference]);
-
-  // Generate QR code image
+  /* clave pública */
   useEffect(() => {
-    const generateQR = async () => {
-      try {
-        const qrData = generateQRData();
-        const qrImage = await QRCode.toDataURL(qrData, {
-          width: 280,
-          margin: 2,
-          color: {
-            dark: '#1C2317',
-            light: '#FFFFFF'
-          }
-        });
-        setQrCodeImage(qrImage);
-      } catch (error) {
-        console.error('Error generating QR code:', error);
-      }
-    };
+    (async () => {
+      if (stellarPublicKey) return setPubKey(stellarPublicKey);
+      const stored = await getPublicKey();
+      if (stored) setPubKey(stored);
+    })();
+  }, [stellarPublicKey]);
 
-    generateQR();
-  }, [generateQRData]);
+  /* genera QR cuando cambia cualquier dependencia */
+  useEffect(() => {
+    if (!pubKey) return;
 
-  const handleCopyAddress = async () => {
-    try {
-      await navigator.clipboard.writeText(walletAddress);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Error copying to clipboard:', error);
+    let url = pubKey;
+    if (includeAmt && amountVal > 0) {
+      const curr = cryptocurrency || currency;
+      url += `?amount=${amountVal}&currency=${curr}`;
+      if (reference) url += `&memo=${encodeURIComponent(reference)}`;
     }
+
+    QRCode.toDataURL(url, { width: 280, margin: 2 })
+      .then(setQrImg)
+      .catch(console.error);
+  }, [pubKey, includeAmt, amountVal, currency, cryptocurrency, reference]);
+
+  /* copiar dirección */
+  const copy = async () => {
+    if (!pubKey) return;
+    await navigator.clipboard.writeText(pubKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
 
-  const toggleAmount = () => {
-    setIncludeAmount(!includeAmount);
-  };
+  const displayCurr = cryptocurrency || currency;
 
+  /* ───────── interfaz ───────── */
   return (
     <div className="deposit-qr-full-screen">
       <main className="deposit-qr-main">
         {/* Header */}
         <header className="flex items-center justify-between p-4 border-b bg-white">
-          <button onClick={onBack} className="p-2">
+          <button onClick={onBack} className="p-2 hover:bg-gray-50 rounded-lg">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M15 18L9 12L15 6" stroke="#1C2317" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M15 18L9 12L15 6" stroke="#1C2317" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </button>
           <h1 className="text-xl font-semibold text-[#1C2317]">Código QR de depósito</h1>
-          <div className="w-10"></div>
+          <div className="w-10" />
         </header>
 
         {/* Content */}
-        <section className="flex-1 bg-white p-6 flex flex-col items-center">
-          {/* QR Amount Toggle */}
-          {amount && (
-            <div className="w-full mb-6">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div>
-                  <p className="font-medium text-[#1C2317]">Incluir cantidad en QR</p>
-                  <p className="text-sm text-[#698282]">
-                    {includeAmount ? `${amount} ${currency}` : 'Cantidad flexible'}
-                  </p>
-                </div>
-                <button
-                  onClick={toggleAmount}
-                  className={`w-12 h-6 rounded-full transition-colors ${
-                    includeAmount ? 'bg-[#2A906F]' : 'bg-gray-300'
+        <section className="flex-1 bg-white p-6 flex flex-col items-center space-y-6 overflow-y-auto">
+          {/* Toggle + Input */}
+          <div className="w-full space-y-3">
+            <label className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* switch */}
+                <div
+                  className={`w-12 h-6 rounded-full relative transition-colors ${
+                    includeAmt ? "bg-[#2A906F]" : "bg-gray-300"
                   }`}
                 >
-                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    includeAmount ? 'translate-x-6' : 'translate-x-0.5'
-                  }`} />
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={includeAmt}
+                    onChange={(e) => setInc(e.target.checked)}
+                  />
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                      includeAmt ? "translate-x-6" : ""
+                    }`}
+                  />
+                </div>
+                <span className="font-medium text-[#1C2317]">Incluir cantidad</span>
+              </div>
+
+              <span className="text-sm text-[#698282]">
+                {includeAmt && amountVal > 0 ? `${amountVal} ${displayCurr}` : "Cantidad flexible"}
+              </span>
+            </label>
+
+            
+          </div>
+
+          {/* QR */}
+          <div className="bg-white p-6 rounded-2xl shadow-lg">
+            {qrImg ? (
+              <Image src={qrImg} alt="QR" width={280} height={280} className="mx-auto" />
+            ) : (
+              <div className="w-[280px] h-[280px] bg-gray-100 grid place-items-center rounded-xl">
+                <div className="animate-spin w-8 h-8 border-2 border-[#2A906F] border-t-transparent rounded-full" />
+              </div>
+            )}
+          </div>
+
+          {/* Wallet Address */}
+          {pubKey && (
+            <div className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[#698282] font-medium">Dirección de la wallet</span>
+                <button
+                  onClick={copy}
+                  className="text-[#2A906F] font-medium hover:text-[#1F6B52] transition"
+                >
+                  {copied ? "Copiado!" : "Copiar"}
                 </button>
               </div>
+              <p className="font-mono text-sm break-all text-[#1C2317]">{pubKey}</p>
             </div>
           )}
-
-          {/* QR Code */}
-          <div className="bg-white p-6 rounded-2xl shadow-lg mb-6">
-            {qrCodeImage ? (
-              <Image 
-                src={qrCodeImage} 
-                alt="Deposit QR Code" 
-                width={280}
-                height={280}
-                className="mx-auto"
-              />
-            ) : (
-              <div className="w-70 h-70 bg-gray-100 rounded-xl flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2A906F]"></div>
-              </div>
-            )}
-          </div>
-
-          {/* Transaction Details */}
-          <div className="w-full space-y-4 mb-6">
-            {includeAmount && amount && (
-              <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                <span className="text-[#698282] font-medium">Cantidad</span>
-                <span className="text-[#1C2317] font-semibold">
-                  {amount} {cryptocurrency || currency}
-                </span>
-              </div>
-            )}
-            
-            {cryptocurrency && (
-              <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                <span className="text-[#698282] font-medium">Criptomoneda</span>
-                <span className="text-[#1C2317] font-medium">{cryptocurrency}</span>
-              </div>
-            )}
-            
-            {includeAmount && reference && (
-              <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                <span className="text-[#698282] font-medium">Referencia</span>
-                <span className="text-[#1C2317] font-medium">{reference}</span>
-              </div>
-            )}
-
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[#698282] font-medium">Dirección del wallet</span>
-                <button 
-                  onClick={handleCopyAddress}
-                  className="text-[#2A906F] hover:text-[#1F6B52] font-medium"
-                >
-                  {copied ? 'Copiado!' : 'Copiar'}
-                </button>
-              </div>
-              <p className="text-sm text-[#1C2317] font-mono break-all">
-                {walletAddress}
-              </p>
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="w-full p-4 bg-blue-50 rounded-xl">
-            <h3 className="font-semibold text-[#1C2317] mb-2">Instrucciones:</h3>
-            <ul className="space-y-1 text-sm text-[#698282]">
-              <li>• Escanea este código QR con tu aplicación de wallet</li>
-              {cryptocurrency ? (
-                <>
-                  <li>• Envía {cryptocurrency} a la dirección de arriba</li>
-                  <li>• Asegúrate de estar en la red correcta</li>
-                </>
-              ) : (
-                <li>• Envía la cantidad exacta mostrada arriba</li>
-              )}
-              <li>• Tu depósito será procesado automáticamente</li>
-              <li>• Guarda esta referencia para tus registros</li>
-            </ul>
-          </div>
         </section>
 
         {/* Footer */}
@@ -212,17 +156,14 @@ export default function DepositQRPage({ onBack, amount, reference, currency = "B
         </footer>
       </main>
 
+      {/* estilos fijos para pantalla completa */}
       <style jsx>{`
         .deposit-qr-full-screen {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          inset: 0;
           background: white;
           z-index: 50;
         }
-
         .deposit-qr-main {
           height: 100vh;
           max-width: 390px;

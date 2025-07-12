@@ -9,9 +9,8 @@ interface DepositCryptoPageProps {
 
 const cryptocurrencies = [
   { symbol: "USDT", name: "Tether", rate: 1.00 },
-  { symbol: "BTC", name: "Bitcoin", rate: 43250.00 },
-  { symbol: "ETH", name: "Ethereum", rate: 2580.00 },
-  { symbol: "BNB", name: "Binance Coin", rate: 315.00 },
+  { symbol: "USDC", name: "Circle", rate: 1.00 },
+  
 ];
 
 export default function DepositCryptoPage({ onBack, onConfirmDeposit }: DepositCryptoPageProps) {

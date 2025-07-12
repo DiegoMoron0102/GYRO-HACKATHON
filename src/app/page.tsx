@@ -21,6 +21,7 @@ import QRScannerPage from "./components/QRScannerPage";
 import CreateAccountPage from "./components/CreateAccountPage";
 import WithdrawConfirmationPage from "./components/WithdrawConfirmationPage";
 import CreateCryptoWalletPage from "./components/CreateCryptoWalletPage";
+import WithdrawSuccessPage from "./components/WithdrawSuccessPage";
 
 interface SavedAccount {
   id: string;
@@ -61,6 +62,8 @@ export default function Home() {
   const [depositData, setDepositData] = useState<{amount: number, reference?: string, currency?: string, cryptocurrency?: string} | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<SavedAccount | null>(null);
   const [showWithdrawConfirmation, setShowWithdrawConfirmation] = useState(false);
+  const [showWithdrawSuccess, setShowWithdrawSuccess] = useState(false);
+  const [withdrawData, setWithdrawData] = useState<{amount: number, accountName: string, transactionId: string} | null>(null);
 
   // Auto-logout después de 3 minutos de inactividad
   const AUTO_LOGOUT_TIME = 3 * 60 * 1000; // 3 minutos en millisegundos
@@ -520,6 +523,25 @@ export default function Home() {
     );
   }
 
+  // Show withdraw success page
+  if (showWithdrawSuccess && user && withdrawData) {
+    return (
+      <div className="withdraw-success-container">
+        <WithdrawSuccessPage
+          onDone={() => {
+            setShowWithdrawSuccess(false);
+            setWithdrawData(null);
+            setSelectedAccount(null);
+            setCurrentView("dashboard");
+          }}
+          amount={withdrawData.amount}
+          accountName={withdrawData.accountName}
+          transactionId={withdrawData.transactionId}
+        />
+      </div>
+    );
+  }
+
   // Show withdraw confirmation page
   if (showWithdrawConfirmation && user && selectedAccount) {
     return (
@@ -531,10 +553,17 @@ export default function Home() {
           }}
           onConfirmWithdraw={(amount) => {
             console.log('Final withdrawal confirmation:', { amount, selectedAccount });
-            alert(`Retiro procesado: ${amount} USDT a ${selectedAccount.name}`);
+            
+            // Crear datos del retiro
+            const transactionId = Math.floor(1000 + Math.random() * 9000).toString();
+            setWithdrawData({
+              amount,
+              accountName: selectedAccount.name,
+              transactionId
+            });
+            
             setShowWithdrawConfirmation(false);
-            setSelectedAccount(null);
-            setCurrentView("dashboard");
+            setShowWithdrawSuccess(true);
           }}
           selectedAccount={selectedAccount}
         />
@@ -581,6 +610,30 @@ export default function Home() {
           onNavigateToSettings={() => setCurrentView("settings")}
           onNavigateToDeposit={handleDeposit}
           onNavigateToWithdraw={handleWithdraw}
+          onNavigateToQRScanner={() => {
+            if (typeof window !== 'undefined') {
+              const kycCompleted = localStorage.getItem("kyc_completed");
+              if (!kycCompleted) {
+                setKycTransactionType("retiro");
+                setShowKycModal(true);
+                return;
+              }
+            }
+            setShowQRScanner(true);
+          }}
+          onNavigateToDepositQR={() => {
+            if (typeof window !== 'undefined') {
+              const kycCompleted = localStorage.getItem("kyc_completed");
+              if (!kycCompleted) {
+                setKycTransactionType("deposito");
+                setShowKycModal(true);
+                return;
+              }
+            }
+            // Crear datos de depósito sin monto para QR directo
+            setDepositData({ amount: 0, reference: "QR-Directo" });
+            setShowDepositQRPage(true);
+          }}
         />
         
         {/* KYC Modal */}
