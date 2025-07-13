@@ -15,7 +15,7 @@ impl User {
 
     pub fn register_user(env: Env, user: Address) -> Result<(), UserError> {
         user.require_auth();
-        let Some(_): Option<Role> = env.storage().persistent().get(&DataKey::User(user.clone())) else {
+        let None: Option<Role> = env.storage().persistent().get(&DataKey::User(user.clone())) else {
             return Err(UserError::AlreadyRegistered);
         };
 
