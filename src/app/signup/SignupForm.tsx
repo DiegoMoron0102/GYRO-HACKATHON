@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { createAccount } from "../lib/keys";
+import { createAccount } from "../../lib/keys";
 
 interface User {
   id: number;

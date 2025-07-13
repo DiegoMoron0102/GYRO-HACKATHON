@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
-import { getPublicKey } from "../lib/keys";
+import { getPublicKey } from "../../lib/keys";
 
 interface Props {
   onBack?: () => void;
