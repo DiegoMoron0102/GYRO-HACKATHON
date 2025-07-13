@@ -7,4 +7,7 @@ pub enum TransactionError {
     InsufficientBalance = 2,
     BalanceDoesNotExist = 3,
     ContractPaused = 4,
+    InsufficientLiquidityFund = 5,
+    TransactionNotFound = 6,
+    TransactionIsEmpty = 7,
 }
