@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import TransactionDetailModal from "./TransactionDetailModal";
-import { checkAccountExists } from "../lib/stellar";
-import { getPublicKey } from "../lib/keys";
+import { checkAccountExists } from "../../lib/stellar";
+import { getPublicKey } from "../../lib/keys";
 //import * as Client from "../../../packages/user";
 
 /* ───────── Tipos ───────── */
