@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { createAccount } from "../../lib/keys";
+import { useRegisterUserWithSponsor } from "@/hooks/useRegisterUser"; // Ajusta el path si es necesario
 
 interface User {
   id: number;
@@ -27,6 +28,9 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isLoading, setIsLoading] = useState(false);
 
+  // Hook para registrar usuario en Soroban (con sponsor)
+  const { register, loading: loadingRegister, error: errorRegister } = useRegisterUserWithSponsor();
+
   const validateField = (field: string, value: string) => {
     switch (field) {
       case 'name':
@@ -44,14 +48,14 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     let processedValue = value;
-    
+
     // Procesar PIN para solo permitir números
     if (field === 'pin' || field === 'confirmPin') {
       processedValue = value.replace(/\D/g, '').slice(0, 4);
     }
-    
+
     setFormData(prev => ({ ...prev, [field]: processedValue }));
-    
+
     // Validar en tiempo real
     const error = validateField(field, processedValue);
     setErrors(prev => ({ ...prev, [field]: error }));
@@ -59,28 +63,29 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validar todos los campos
     const newErrors: {[key: string]: string} = {};
     Object.entries(formData).forEach(([field, value]) => {
       const error = validateField(field, value);
       if (error) newErrors[field] = error;
     });
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Crear cuenta Stellar (mock)
-      console.log('Creando cuenta Stellar (modo desarrollo)...');
+      // 1. Crear cuenta Stellar (local)
       const stellarPublicKey = await createAccount(formData.pin);
-      console.log('Cuenta Stellar creada:', stellarPublicKey);
-      
-      // Crear usuario
+
+      // 2. Registrar usuario en Soroban con sponsor
+      await register(stellarPublicKey);
+
+      // 3. Crear usuario local
       const newUser: User = {
         id: Date.now(),
         name: formData.name,
@@ -90,24 +95,32 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
         createdAt: new Date().toISOString()
       };
 
-      // Guardar en localStorage (simulando backend)
+      // 4. Guardar en localStorage (simulando backend)
       const existingUsers = JSON.parse(localStorage.getItem("gyro_users") || "[]");
-      
+
       // Verificar si el email ya existe
       if (existingUsers.some((user: User) => user.email === formData.email)) {
         setErrors({ email: 'Este email ya está registrado' });
+        setIsLoading(false);
         return;
       }
-      
+
       existingUsers.push(newUser);
       localStorage.setItem("gyro_users", JSON.stringify(existingUsers));
-      
-      console.log('Usuario creado exitosamente:', newUser);
+
       onSignupSuccess(newUser);
-      
-    } catch (error) {
-      console.error('Error en registro:', error);
-      setErrors({ general: 'Error al crear la cuenta. Inténtalo de nuevo.' });
+
+    } catch {
+      // Manejo robusto del error
+      if (
+          typeof errorRegister === "object" &&
+          errorRegister !== null &&
+          "message" in errorRegister &&
+          typeof (errorRegister as { message: unknown }).message === "string"
+        ) {
+          setErrors({ general: (errorRegister as { message: string }).message });
+        }
+
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +164,7 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
                   errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
                 }`}
                 placeholder="Tu nombre completo"
-                disabled={isLoading}
+                disabled={isLoading || loadingRegister}
               />
               {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
             </div>
@@ -169,7 +182,7 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
                   errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
                 }`}
                 placeholder="tu@email.com"
-                disabled={isLoading}
+                disabled={isLoading || loadingRegister}
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
             </div>
@@ -188,7 +201,7 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
                 }`}
                 placeholder="••••"
                 maxLength={4}
-                disabled={isLoading}
+                disabled={isLoading || loadingRegister}
               />
               {errors.pin && <p className="text-red-500 text-sm mt-1">{errors.pin}</p>}
             </div>
@@ -207,7 +220,7 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
                 }`}
                 placeholder="••••"
                 maxLength={4}
-                disabled={isLoading}
+                disabled={isLoading || loadingRegister}
               />
               {errors.confirmPin && <p className="text-red-500 text-sm mt-1">{errors.confirmPin}</p>}
             </div>
@@ -218,6 +231,7 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
                 <p className="text-red-600 text-sm">{errors.general}</p>
               </div>
             )}
+            
 
             {/* Info sobre Stellar */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -228,10 +242,10 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
                 </svg>
                 <div>
                   <p className="text-blue-800 text-sm font-medium mb-1">
-                    🌟 Stellar Testnet
+                    Stellar Testnet
                   </p>
                   <p className="text-blue-700 text-xs">
-                    Tu billetera se creará en la red de prueba de Stellar con fondos reales para testing. Cifrado AES-256 protege tus claves.
+                    Tu billetera se creará en la red de prueba de Stellar. Cifrado AES-256 protege tus claves.
                   </p>
                 </div>
               </div>
@@ -240,13 +254,17 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading || Object.keys(errors).some(key => errors[key] && key !== 'general')}
+              disabled={
+                isLoading ||
+                loadingRegister ||
+                Object.keys(errors).some(key => errors[key] && key !== 'general')
+              }
               className="w-full py-4 bg-[#2A906F] text-white font-semibold rounded-xl hover:bg-[#1F6B52] transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              {isLoading ? (
+              {isLoading || loadingRegister ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Creando cuenta Stellar...
+                  Creando cuenta...
                 </>
               ) : (
                 'Crear cuenta'
@@ -260,7 +278,7 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
               <button
                 onClick={onBackToLogin}
                 className="text-[#2A906F] font-medium hover:underline"
-                disabled={isLoading}
+                disabled={isLoading || loadingRegister}
               >
                 Iniciar sesión
               </button>
@@ -279,7 +297,6 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
           background: white;
           z-index: 50;
         }
-
         .signup-main {
           height: 100vh;
           max-width: 390px;
