@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "backend/contracts/gyro",
-
+    "backend/contracts/user",
 ]
 
 [workspace.dependencies]

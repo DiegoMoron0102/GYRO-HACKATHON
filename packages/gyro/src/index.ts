@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CAL2BH5KK5XTI6PN5Q7LNBXW5WAFGGNKD2XVE5G6FKOYON4IYOQQC6IN",
+    contractId: "CDCNJQG4DAHB3H2EFSYDPN3IIAWV2APYTDVS3WM2WMHLRIPW4LCTZIL6",
   }
 } as const
 
@@ -208,7 +208,6 @@ export interface Client {
 
 }
 export class Client extends ContractClient {
-  static networks: any;
   static async deploy<T = Client>(
         /** Constructor/Initialization Args for the contract's `__constructor` method */
         {user_contract_id, usdc_token}: {user_contract_id: string, usdc_token: string},

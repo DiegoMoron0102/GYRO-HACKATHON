@@ -97,18 +97,6 @@ impl Gyro {
         if amount <= 0 || user_balance < amount {
             return Err(TransactionError::InsufficientBalance);
         }
-        match asset_type {
-            AssetType::USDC => {
-                let usdc_asset: Address = env.storage().instance().get(&USDC_ASSET).unwrap();
-                let token_client = token::Client::new(&env, &usdc_asset);
-
-                let Some(admin) = Self::find_available_admin(&env, &token_client, amount) else {
-                    return Err(TransactionError::InsufficientLiquidityFund);
-                };
-                token_client.transfer(&admin, &user, &(amount as i128));
-            },
-            AssetType::Bs => {},
-        }
         user_balance -= amount;
         env.storage().persistent().set(&Balance(user.clone(), asset_type.clone()), &user_balance);
         let transaction = Transaction {
