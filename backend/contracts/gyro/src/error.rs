@@ -2,6 +2,7 @@ use soroban_sdk::contracterror;
 
 #[derive(Clone)]
 #[contracterror]
+#[derive(Debug)]
 pub enum TransactionError {
     DuplicateTx = 1,
     InsufficientBalance = 2,

@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CDCNJQG4DAHB3H2EFSYDPN3IIAWV2APYTDVS3WM2WMHLRIPW4LCTZIL6",
+    contractId: "CAOSVKNJ54XTRNLPBS5HBSY2YVIAZYPM2CBQOMLVXOSL7GA6DFRT3AJY",
   }
 } as const
 
@@ -85,26 +85,6 @@ export interface Client {
      */
     simulate?: boolean;
   }) => Promise<AssembledTransaction<null>>
-
-  /**
-   * Construct and simulate a admin_approve transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  admin_approve: ({admin, amount}: {admin: string, amount: i128}, options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a transfer transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -210,7 +190,7 @@ export interface Client {
 export class Client extends ContractClient {
   static async deploy<T = Client>(
         /** Constructor/Initialization Args for the contract's `__constructor` method */
-        {user_contract_id, usdc_token}: {user_contract_id: string, usdc_token: string},
+        {owner}: {owner: string},
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
@@ -222,13 +202,12 @@ export class Client extends ContractClient {
         format?: "hex" | "base64";
       }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy({user_contract_id, usdc_token}, options)
+    return ContractClient.deploy({owner}, options)
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAAEHVzZXJfY29udHJhY3RfaWQAAAATAAAAAAAAAAp1c2RjX3Rva2VuAAAAAAATAAAAAA==",
+      new ContractSpec([ "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAEAAAAAAAAABW93bmVyAAAAAAAAEwAAAAA=",
         "AAAAAAAAAAAAAAAQcmVnaXN0ZXJfYmFsYW5jZQAAAAEAAAAAAAAABHVzZXIAAAATAAAAAA==",
-        "AAAAAAAAAAAAAAANYWRtaW5fYXBwcm92ZQAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAQAAA+kAAAPtAAAAAAAAB9AAAAAJVXNlckVycm9yAAAA",
         "AAAAAAAAAAAAAAAIdHJhbnNmZXIAAAAGAAAAAAAAAARmcm9tAAAAEwAAAAAAAAACdG8AAAAAABMAAAAAAAAACmFzc2V0X3R5cGUAAAAAB9AAAAAJQXNzZXRUeXBlAAAAAAAAAAAAAAZhbW91bnQAAAAAAAQAAAAAAAAABGRhdGUAAAAQAAAAAAAAAAV0eF9pZAAAAAAAABAAAAABAAAD6QAAA+0AAAAAAAAH0AAAABBUcmFuc2FjdGlvbkVycm9y",
         "AAAAAAAAAAAAAAAId2l0aGRyYXcAAAAFAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAKYXNzZXRfdHlwZQAAAAAH0AAAAAlBc3NldFR5cGUAAAAAAAAAAAAABmFtb3VudAAAAAAABAAAAAAAAAAEZGF0ZQAAABAAAAAAAAAABXR4X2lkAAAAAAAAEAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAEFRyYW5zYWN0aW9uRXJyb3I=",
         "AAAAAAAAAAAAAAAQZ2V0X3VzZXJfYmFsYW5jZQAAAAIAAAAAAAAABHVzZXIAAAATAAAAAAAAAAphc3NldF90eXBlAAAAAAfQAAAACUFzc2V0VHlwZQAAAAAAAAEAAAPpAAAABAAAB9AAAAAQVHJhbnNhY3Rpb25FcnJvcg==",
@@ -244,7 +223,6 @@ export class Client extends ContractClient {
   }
   public readonly fromJSON = {
     register_balance: this.txFromJSON<null>,
-        admin_approve: this.txFromJSON<Result<void>>,
         transfer: this.txFromJSON<Result<void>>,
         withdraw: this.txFromJSON<Result<void>>,
         get_user_balance: this.txFromJSON<Result<u32>>,

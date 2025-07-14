@@ -1,52 +1,26 @@
 #![no_std]
 use crate::error::TransactionError;
-use crate::storage_types::{Transaction, TransactionType};
-use user_contract::UserError;
 use crate::storage_types::AssetType;
-use soroban_sdk::{contract, contractimpl, symbol_short, token, vec, Address, Env, String, Symbol, Vec};
 use crate::storage_types::DataKey::{Balance, Transactions};
+use crate::storage_types::{Transaction, TransactionType};
+use soroban_sdk::{contract, contractimpl, symbol_short, vec, Address, Env, String, Symbol, Vec};
 
 const TRANSFER: Symbol = symbol_short!("TRANSFER");
 const WITHDRAW: Symbol = symbol_short!("WITHDRAW");
-const USER_CONTRACT: Symbol = symbol_short!("USER_C");
-const USDC_ASSET: Symbol = symbol_short!("USDC_ID");
-
-mod user_contract {
-    soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/user.wasm",
-    );
-}
 
 #[contract]
 pub struct Gyro;
 
 #[contractimpl]
 impl Gyro {
-    pub fn __constructor(env: Env, user_contract_id: Address, usdc_token: Address) {
-        env.storage().instance().set(&USER_CONTRACT, &user_contract_id);
-        env.storage().instance().set(&USDC_ASSET, &usdc_token);
+    pub fn __constructor(env: Env,  owner: Address) {
+        env.storage().instance().set(&"owner", &owner);
+        env.storage().persistent().set(&Balance(env.current_contract_address(), AssetType::USDC), &1000000u32);
     }
     pub fn register_balance(env: Env, user: Address) {
         env.storage().persistent().set(&Balance(user, AssetType::USDC), &0u32);
     }
 
-    pub fn admin_approve(env: Env, admin: Address, amount: i128) -> Result<(), UserError> {
-        admin.require_auth();
-        let user_contract_id: Address = env.storage().instance().get(&USER_CONTRACT).unwrap();
-        let client = user_contract::Client::new(&env, &user_contract_id);
-        if !client.is_admin(&admin) {
-            return Err(UserError::NotAuthorized);
-        };
-
-        let usdc_token: Address = env.storage().instance().get(&USDC_ASSET).unwrap();
-        token::Client::new(&env, &usdc_token).approve(
-            &admin,
-            &env.current_contract_address(),
-            &amount,
-            &((env.ledger().timestamp() + 30 * 24 * 60 * 60) as u32) // 30-day expiration
-        );
-        Ok(())
-    }
     pub fn transfer(
         env: Env,
         from: Address,
@@ -111,19 +85,6 @@ impl Gyro {
         Self::save_transaction(env.clone(), user.clone(), transaction)?;
         env.events().publish((WITHDRAW, &user, asset_type), amount);
         Ok(())
-    }
-
-    fn find_available_admin(env: &Env, token: &token::Client, amount: u32) -> Option<Address> {
-        let client = user_contract::Client::new(env, &env.storage().instance().get(&USER_CONTRACT).unwrap());
-        let admins: Vec<Address> = client.get_admins();
-
-        for admin in admins.iter() {
-            let allowance = token.allowance(&admin, &env.current_contract_address());
-            if allowance >= amount as i128 {
-                return Some(admin.clone());
-            }
-        }
-        None
     }
 
     fn save_transaction(

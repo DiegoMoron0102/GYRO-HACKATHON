@@ -48,3 +48,6 @@ target
 # Local settings
 .soroban
 .stellar
+
+test_snapshots
+dist

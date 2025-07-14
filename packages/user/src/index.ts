@@ -153,7 +153,6 @@ export interface Client {
 
 }
 export class Client extends ContractClient {
-  static networks: any;
   static async deploy<T = Client>(
         /** Constructor/Initialization Args for the contract's `__constructor` method */
         {owner}: {owner: string},
