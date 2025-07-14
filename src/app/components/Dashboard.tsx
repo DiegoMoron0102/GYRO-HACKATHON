@@ -1,22 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import TransactionDetailModal from "./TransactionDetailModal";
-import { checkAccountExists } from "../../lib/stellar";
-import { getPublicKey } from "../../lib/keys";
 import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { getLocalBalance } from "@/utils/balanceManager"; // Importamos la función para obtener el balance simulado
 
 //import * as Client from "../../../packages/user";
 
-/* ───────── Tipos ───────── */
 interface User {
   id: number;
   name: string;
   email: string;
   pin: string;
   createdAt: string;
+  stellarPublicKey?: string;
 }
+
 
 interface Transaction {
   id: string;
@@ -41,8 +41,6 @@ interface DashboardProps {
 }
 
 /* ───────── Fake conversión XLM→USDC para MVP ───────── */
-const fakeUsdBalance = (xlmNum: number): number =>
-  Math.max(0, xlmNum - 9_999); // friendbot 10 000 XLM → 1 USDC
 
 /* ───────── Componente ───────── */
 export default function Dashboard({
@@ -56,49 +54,25 @@ export default function Dashboard({
   onNavigateToDepositQR,
 }: DashboardProps) {
   /* ---------- estado ---------- */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [xlmBalance, setXlmBalance] = useState<string | null>(null);
-  const [usdBalance, setUsdBalance] = useState<number | null>(null);
-  const [accountReady, setAccountReady] = useState<boolean>(false);
-
+  
+  
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const { buyRate, sellRate, loading: rateLoading, error: rateError, refreshRate } = useExchangeRate();
+ 
+  // Clave de Stellar del usuario. Se inicializa con el valor de las props o del localStorage.
+  
+  
+  const [simulatedBalance, setSimulatedBalance] = useState<number>(getLocalBalance());
 
-  /* ---------- consulta Horizon ---------- */
-  useEffect(() => {
-    let cancel = false;
+useEffect(() => {
+  const interval = setInterval(() => setSimulatedBalance(getLocalBalance()), 1000);
+  return () => clearInterval(interval);
+}, []);
 
-    (async () => {
-      try {
-        const pubKey =
-(user as { stellarPublicKey?: string }).stellarPublicKey ??
-(await getPublicKey());        
-    if (!pubKey) return;
 
-        const { exists, balance } = await checkAccountExists(pubKey);
-
-        if (cancel) return; // componente desmontado
-
-        setAccountReady(exists);
-        if (exists) {
-          setXlmBalance(balance); // texto “9999.12345”
-          setUsdBalance(fakeUsdBalance(parseFloat(balance)));
-        } else {
-          setXlmBalance(null);
-          setUsdBalance(null);
-        }
-      } catch (err) {
-        console.error("Error Horizon:", err);
-      }
-    })();
-
-    return () => {
-      cancel = true;
-    };
-  }, [user]);
 
   /* ---------- dummy transacciones ---------- */
   const transactions: Transaction[] = [
@@ -195,18 +169,11 @@ export default function Dashboard({
           {/* Balance Card */}
           <div className="bg-gradient-to-br from-[#2A906F] to-[#1F6B52] rounded-2xl p-6">
             <div className="text-center mb-6">
-              <p className="text-sm opacity-75 mb-1">Saldo</p>
-              {accountReady ? (
-                  <p className="text-4xl font-bold">
-                    {usdBalance !== null ? `${usdBalance.toFixed(2)} USDC` : "…"}
-                  </p>
-                ) : (
-                  <p className="text-base font-medium text-yellow-200">
-                    Cuenta sin activar
-                  </p>
-                )}
-            </div>
-
+            <p className="text-sm opacity-75 mb-1">Saldo</p>
+            <p className="text-4xl font-bold">
+              {simulatedBalance.toFixed(2)} USDC
+            </p>
+          </div>
             <div className="flex justify-center gap-6">
               <button 
                 className="flex flex-col items-center gap-2"

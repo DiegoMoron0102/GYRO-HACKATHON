@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
-import { getPublicKey } from "../../lib/keys";
+import { updateLocalBalance } from "@/utils/balanceManager";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
 
 interface Props {
   onBack?: () => void;
@@ -22,42 +23,36 @@ export default function DepositQRPage({
   cryptocurrency,
   stellarPublicKey,
 }: Props) {
-  /* ───────── estado ───────── */
   const [pubKey, setPubKey] = useState<string | null>(null);
   const [includeAmt, setInc] = useState<boolean>(amount > 0);
   const [amountVal, setAmt] = useState<number>(amount);
   const [qrImg, setQrImg] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const { buyRate } = useExchangeRate();
 
-  /* sync prop→state si cambia la prop amount */
+  const storedPubKey =
+    typeof window !== "undefined" ? localStorage.getItem("publicKey") : null;
+
   useEffect(() => setAmt(amount), [amount]);
 
-  /* clave pública */
   useEffect(() => {
-    (async () => {
-      if (stellarPublicKey) return setPubKey(stellarPublicKey);
-      const stored = await getPublicKey();
-      if (stored) setPubKey(stored);
-    })();
-  }, [stellarPublicKey]);
+    if (stellarPublicKey) return setPubKey(stellarPublicKey);
+    if (storedPubKey) setPubKey(storedPubKey);
+  }, [stellarPublicKey, storedPubKey]);
 
-  /* genera QR cuando cambia cualquier dependencia */
   useEffect(() => {
     if (!pubKey) return;
-
     let url = pubKey;
     if (includeAmt && amountVal > 0) {
       const curr = cryptocurrency || currency;
       url += `?amount=${amountVal}&currency=${curr}`;
       if (reference) url += `&memo=${encodeURIComponent(reference)}`;
     }
-
     QRCode.toDataURL(url, { width: 280, margin: 2 })
       .then(setQrImg)
       .catch(console.error);
   }, [pubKey, includeAmt, amountVal, currency, cryptocurrency, reference]);
 
-  /* copiar dirección */
   const copy = async () => {
     if (!pubKey) return;
     await navigator.clipboard.writeText(pubKey);
@@ -67,11 +62,31 @@ export default function DepositQRPage({
 
   const displayCurr = cryptocurrency || currency;
 
-  /* ───────── interfaz ───────── */
+  const handleSimulate = async () => {
+    try {
+      if (!storedPubKey) throw new Error("Falta la clave pública");
+
+      const usdtAmount = currency === "BOB" ? amountVal / buyRate : amountVal;
+      updateLocalBalance(usdtAmount);
+
+      console.log("✅ Depósito simulado:", {
+        to: storedPubKey,
+        amount: amountVal,
+        converted: usdtAmount,
+        currency,
+      });
+      alert("Depósito simulado con éxito");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Error desconocido";
+      console.error("❌ Error en simulación:", message);
+      alert("Error al simular la transferencia: " + message);
+    }
+  };
+
   return (
     <div className="deposit-qr-full-screen">
       <main className="deposit-qr-main">
-        {/* Header */}
         <header className="flex items-center justify-between p-4 border-b bg-white">
           <button onClick={onBack} className="p-2 hover:bg-gray-50 rounded-lg">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -82,13 +97,10 @@ export default function DepositQRPage({
           <div className="w-10" />
         </header>
 
-        {/* Content */}
         <section className="flex-1 bg-white p-6 flex flex-col items-center space-y-6 overflow-y-auto">
-          {/* Toggle + Input */}
           <div className="w-full space-y-3">
             <label className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {/* switch */}
                 <div
                   className={`w-12 h-6 rounded-full relative transition-colors ${
                     includeAmt ? "bg-[#2A906F]" : "bg-gray-300"
@@ -113,11 +125,8 @@ export default function DepositQRPage({
                 {includeAmt && amountVal > 0 ? `${amountVal} ${displayCurr}` : "Cantidad flexible"}
               </span>
             </label>
-
-            
           </div>
 
-          {/* QR */}
           <div className="bg-white p-6 rounded-2xl shadow-lg">
             {qrImg ? (
               <Image src={qrImg} alt="QR" width={280} height={280} className="mx-auto" />
@@ -128,7 +137,6 @@ export default function DepositQRPage({
             )}
           </div>
 
-          {/* Wallet Address */}
           {pubKey && (
             <div className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2">
               <div className="flex justify-between items-center">
@@ -143,9 +151,15 @@ export default function DepositQRPage({
               <p className="font-mono text-sm break-all text-[#1C2317]">{pubKey}</p>
             </div>
           )}
+
+          <button
+            onClick={handleSimulate}
+            className="w-full py-3 rounded-3xl font-medium bg-[#2A906F] text-white hover:bg-[#1F6B52] transition"
+          >
+            Simular depósito
+          </button>
         </section>
 
-        {/* Footer */}
         <footer className="p-4 bg-white">
           <button
             onClick={onBack}
@@ -156,7 +170,6 @@ export default function DepositQRPage({
         </footer>
       </main>
 
-      {/* estilos fijos para pantalla completa */}
       <style jsx>{`
         .deposit-qr-full-screen {
           position: fixed;

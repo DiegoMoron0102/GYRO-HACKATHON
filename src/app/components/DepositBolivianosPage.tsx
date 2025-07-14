@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
+
 
 interface DepositBolivianosPageProps {
   onBack?: () => void;
@@ -12,12 +14,13 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
   const [reference, setReference] = useState("");
   
   // Exchange rate (this could come from an API)
-  const exchangeRate = 16.55; // 1 USD = 6.96 BOB
+  const { buyRate } = useExchangeRate();
+
   const maxAmount = 160000; // Maximum allowed in Bolivianos
   
   // Calculate USDT amount based on BOB input
   const calculateUSDT = (bobAmount: number) => {
-    return (bobAmount / exchangeRate).toFixed(2);
+    return (bobAmount / buyRate).toFixed(2);
   };
 
   const handleAmountChange = (value: string) => {
@@ -73,7 +76,7 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
           {/* Exchange Rate */}
           <div className="flex justify-between items-center py-4">
             <span className="text-[#698282] font-medium">Tasa de cambio</span>
-            <span className="text-[#1C2317] font-medium">1 USD = {exchangeRate} BOB</span>
+            <span className="text-[#1C2317] font-medium">1 USD = {(buyRate).toFixed(2)} BOB</span>
           </div>
 
           {/* You will receive */}

@@ -31,13 +31,18 @@ interface SavedAccount {
   bank?: string;
 }
 
+// ...existing code...
+
 interface User {
   id: number;
   name: string;
   email: string;
   pin: string;
   createdAt: string;
+  stellarPublicKey?: string; // Cambiar a opcional con ?
 }
+
+// ...existing code...
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
@@ -144,11 +149,18 @@ export default function Home() {
   };
 
   const handleAuthSuccess = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem("gyro_user", JSON.stringify(userData));
+    // Asegurar que siempre haya un stellarPublicKey
+    const userWithStellar: User = {
+      ...userData,
+      stellarPublicKey: userData.stellarPublicKey || `STELLAR_${userData.id}_${Date.now()}`
+    };
+    
+    setUser(userWithStellar);
+    localStorage.setItem("gyro_user", JSON.stringify(userWithStellar));
     setCurrentView("dashboard");
-    resetActivity(); // Resetear timer al hacer login
+    resetActivity();
   };
+
 
   const handleShowSignup = () => {
     setCurrentView("signup");
@@ -332,11 +344,6 @@ export default function Home() {
           onBack={() => {
             setShowDepositCryptoPage(false);
             setShowDepositPage(true);
-          }}
-          onConfirmDeposit={(cryptocurrency, amount) => {
-            setDepositData({ amount, cryptocurrency });
-            setShowDepositCryptoPage(false);
-            setShowDepositQRPage(true);
           }}
         />
       </div>

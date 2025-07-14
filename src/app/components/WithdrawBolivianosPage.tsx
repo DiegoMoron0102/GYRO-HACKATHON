@@ -8,6 +8,8 @@ interface WithdrawBolivianosPageProps {
   onAddAccount?: () => void;
 }
 
+
+
 export default function WithdrawBolivianosPage({ onBack, onConfirmWithdraw, onAddAccount }: WithdrawBolivianosPageProps) {
   const [amount, setAmount] = useState("");
   const [selectedAccount, setSelectedAccount] = useState("");

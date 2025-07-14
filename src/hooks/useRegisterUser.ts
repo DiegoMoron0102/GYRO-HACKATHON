@@ -13,7 +13,7 @@ import { useSorobanReact } from "@soroban-react/core";
 
 /* IDs de contrato */
 const USER_CONTRACT_ID = "CANM3T4BWINEPXWFWDIUT7XFX44TGS6AFJMXPNGKFSW6J7UL2422M263";
-const BALANCE_CONTRACT_ID = "CAL2BH5KK5XTI6PN5Q7LNBXW5WAFGGNKD2XVE5G6FKOYON4IYOQQC6IN";
+const BALANCE_CONTRACT_ID = "CAOSVKNJ54XTRNLPBS5HBSY2YVIAZYPM2CBQOMLVXOSL7GA6DFRT3AJY";
 
 interface RegisterArgs {
   pin: string;
@@ -113,13 +113,18 @@ export function useRegisterUserProgrammatic() {
       });
 
       console.log("✅ Balance registered successfully:", resBal.result);
-
+      // Guardar datos en localStorage para el MVP no se usara en producción
+      localStorage.setItem("publicKey", publicKey);
+      localStorage.setItem("secretKey", secretKey);
+      
       setLoading(false);
       return {
         publicKey,
         secretKey,
         name,
         email,
+        stellarPublicKey: publicKey,
+        createdAt: new Date().toISOString(),
         userTxResult: resUser.result,
         balanceTxResult: resBal.result
       };
