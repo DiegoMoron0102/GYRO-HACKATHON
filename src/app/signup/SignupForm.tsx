@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { createAccount } from "../../lib/keys";
-import { useRegisterUserWithSponsor } from "@/hooks/useRegisterUser"; // Ajusta el path si es necesario
+import { useRegisterUserProgrammatic } from "@/hooks/useRegisterUser"; // Ajusta el path si es necesario
 
 interface User {
   id: number;
@@ -29,7 +28,7 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
   const [isLoading, setIsLoading] = useState(false);
 
   // Hook para registrar usuario en Soroban (con sponsor)
-  const { register, loading: loadingRegister, error: errorRegister } = useRegisterUserWithSponsor();
+  const { register, loading: loadingRegister, error: errorRegister } = useRegisterUserProgrammatic();
 
   const validateField = (field: string, value: string) => {
     switch (field) {
@@ -62,69 +61,69 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Validar todos los campos
-    const newErrors: {[key: string]: string} = {};
-    Object.entries(formData).forEach(([field, value]) => {
-      const error = validateField(field, value);
-      if (error) newErrors[field] = error;
+  // Validar todos los campos
+  const newErrors: {[key: string]: string} = {};
+  Object.entries(formData).forEach(([field, value]) => {
+    const error = validateField(field, value);
+    if (error) newErrors[field] = error;
+  });
+
+  if (Object.keys(newErrors).length > 0) {
+    setErrors(newErrors);
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    // 1. Registrar usuario en Soroban, el hook se encarga de todo
+    const { publicKey } = await register({
+      pin: formData.pin,
+      name: formData.name,
+      email: formData.email,
     });
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+    // 2. Crear usuario local con las claves devueltas por el hook
+    const newUser: User = {
+      id: Date.now(),
+      name: formData.name,
+      email: formData.email,
+      pin: formData.pin,
+      stellarPublicKey: publicKey,   // ← resultado del hook
+      createdAt: new Date().toISOString()
+    };
+
+    // 3. Guardar en localStorage (simulando backend)
+    const existingUsers = JSON.parse(localStorage.getItem("gyro_users") || "[]");
+    if (existingUsers.some((user: User) => user.email === formData.email)) {
+      setErrors({ email: 'Este email ya está registrado' });
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    existingUsers.push(newUser);
+    localStorage.setItem("gyro_users", JSON.stringify(existingUsers));
 
-    try {
-      // 1. Crear cuenta Stellar (local)
-      const stellarPublicKey = await createAccount(formData.pin);
+    onSignupSuccess(newUser);
 
-      // 2. Registrar usuario en Soroban con sponsor
-      await register(stellarPublicKey);
+   } catch (error: unknown) {
+    // ✅ CORREGIDO: Tipado seguro para el error
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : typeof error === 'string' 
+        ? error 
+        : "Error desconocido al crear la cuenta.";
+    
+    setErrors({
+      general: errorMessage || errorRegister || "Error desconocido al crear la cuenta."
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-      // 3. Crear usuario local
-      const newUser: User = {
-        id: Date.now(),
-        name: formData.name,
-        email: formData.email,
-        pin: formData.pin,
-        stellarPublicKey,
-        createdAt: new Date().toISOString()
-      };
-
-      // 4. Guardar en localStorage (simulando backend)
-      const existingUsers = JSON.parse(localStorage.getItem("gyro_users") || "[]");
-
-      // Verificar si el email ya existe
-      if (existingUsers.some((user: User) => user.email === formData.email)) {
-        setErrors({ email: 'Este email ya está registrado' });
-        setIsLoading(false);
-        return;
-      }
-
-      existingUsers.push(newUser);
-      localStorage.setItem("gyro_users", JSON.stringify(existingUsers));
-
-      onSignupSuccess(newUser);
-
-    } catch {
-      // Manejo robusto del error
-      if (
-          typeof errorRegister === "object" &&
-          errorRegister !== null &&
-          "message" in errorRegister &&
-          typeof (errorRegister as { message: unknown }).message === "string"
-        ) {
-          setErrors({ general: (errorRegister as { message: string }).message });
-        }
-
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="signup-full-screen">

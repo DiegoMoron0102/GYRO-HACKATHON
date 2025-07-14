@@ -5,6 +5,8 @@ import Image from "next/image";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { checkAccountExists } from "../../lib/stellar";
 import { getPublicKey } from "../../lib/keys";
+import { useExchangeRate } from '@/hooks/useExchangeRate';
+
 //import * as Client from "../../../packages/user";
 
 /* ───────── Tipos ───────── */
@@ -63,6 +65,7 @@ export default function Dashboard({
     useState<Transaction | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const { buyRate, sellRate, loading: rateLoading, error: rateError, refreshRate } = useExchangeRate();
 
   /* ---------- consulta Horizon ---------- */
   useEffect(() => {
@@ -254,23 +257,72 @@ export default function Dashboard({
         <section className="dashboard-content">
           {/* Exchange Rates */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              Tasa de Interes
-            </h3>
-            <p className="text-gray-600 mb-4">Dolar Gyros</p>
+            <h3 className="text-lg font-semibold text-gray-900">
+                Tasa de Cambio
+              </h3>
+              <button 
+                onClick={refreshRate}  // ← Cambio aquí: usar refreshRate en lugar de window.location.reload()
+                className={`p-1 ${rateLoading ? 'animate-spin' : ''}`}
+                disabled={rateLoading}
+                title="Actualizar tasas"
+              >
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Dólar Gyro
+              {rateError && (
+                <span className="text-red-500 text-xs ml-2">⚠️ Error en API</span>
+              )}
+            </p>
 
             <div className="flex justify-center gap-6 mb-6">
               <div className="text-center">
                 <p className="text-[#2A906F] font-medium">Depositar</p>
-                <p className="text-sm text-gray-600">16.55</p>
+                {rateLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-[#2A906F] rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 font-semibold">
+                    {buyRate.toFixed(2)} Bs
+                  </p>
+                )}
+                
               </div>
-              <div className="w-px h-8 bg-gray-200"></div>
+              
+              <div className="w-px h-12 bg-gray-200"></div>
+              
               <div className="text-center">
                 <p className="text-[#2A906F] font-medium">Retirar</p>
-                <p className="text-sm text-gray-600">16.03</p>
+                {rateLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-[#2A906F] rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 font-semibold">
+                    {sellRate.toFixed(2)} Bs 
+                  </p>
+                )}
+                
               </div>
             </div>
-          </div>
+
+            {/* Última actualización */}
+            {!rateLoading && !rateError && (
+              <div className="text-center">
+                <p className="text-xs text-gray-400">
+                  Actualizado hace {new Date().toLocaleTimeString('es-BO', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </p>
+              </div>
+            )}
+
 
           {/* Transactions */}
           <div className="mb-4">

@@ -20,7 +20,7 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@hooks/*": ["./src/hooks/*"],
+      "@hooks/*": ["./hooks/*"],
       "@packages/*": ["./packages/*"],
     }
   },

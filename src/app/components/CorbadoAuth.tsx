@@ -21,6 +21,8 @@ export default function CorbadoAuth({ onAuthSuccess, onShowSignup }: CorbadoAuth
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState('');
 
+  const ADMIN_PIN = "admn"; 
+
   const handlePinChange = (index: number, value: string) => {
     if (value.length > 1) return; // Solo un dígito por input
     
@@ -51,6 +53,22 @@ export default function CorbadoAuth({ onAuthSuccess, onShowSignup }: CorbadoAuth
   const handlePinLogin = async (pinValue: string) => {
     setIsAuthenticating(true);
     setError('');
+
+     if (pinValue.toLowerCase() === ADMIN_PIN) {
+      const adminUser: User = {
+        id        : 0,
+        name      : "Administrador",
+        email     : "admin@gyro.local",
+        pin       : ADMIN_PIN,
+        createdAt : new Date().toISOString()
+      };
+      // pequeño retardo para mostrar animación
+      setTimeout(() => {
+        onAuthSuccess?.(adminUser);
+        setIsAuthenticating(false);
+      }, 600);
+      return;
+    }
 
     try {
       // Buscar usuarios en localStorage
