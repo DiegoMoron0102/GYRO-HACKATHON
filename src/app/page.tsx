@@ -5,7 +5,7 @@ import SplashScreen from "./components/SplashScreen";
 import CorbadoAuth from "./components/CorbadoAuth";
 import SignupForm from "./signup/SignupForm";
 import Dashboard from "./components/Dashboard";
-import HistoryPage from "./components/HistoryPage";
+import TransactionHistoryPage from "./components/TransactionHistoryPage";
 import MorePage from "./components/MorePage";
 import ProfileSettingsPage from "./components/ProfileSettingsPage";
 import KYCModal from "./components/KYCModal";
@@ -22,6 +22,15 @@ import CreateAccountPage from "./components/CreateAccountPage";
 import WithdrawConfirmationPage from "./components/WithdrawConfirmationPage";
 import CreateCryptoWalletPage from "./components/CreateCryptoWalletPage";
 import WithdrawSuccessPage from "./components/WithdrawSuccessPage";
+import { 
+  getUserData, 
+  saveUserData, 
+  getKYCStatus, 
+  saveKYCStatus,
+  clearAllSecureData, 
+  migrateFromLocalStorage,
+  UserData 
+} from "@/utils/secureStorage";
 
 interface SavedAccount {
   id: string;
@@ -31,15 +40,9 @@ interface SavedAccount {
   bank?: string;
 }
 
-// ...existing code...
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  pin: string;
-  createdAt: string;
-  stellarPublicKey?: string; // Cambiar a opcional con ?
+// Usar la interfaz UserData del almacenamiento seguro, pero permitir stellarPublicKey opcional para compatibilidad
+interface User extends Omit<UserData, 'stellarPublicKey'> {
+  stellarPublicKey?: string;
 }
 
 // ...existing code...
@@ -70,6 +73,9 @@ export default function Home() {
   const [showWithdrawSuccess, setShowWithdrawSuccess] = useState(false);
   const [withdrawData, setWithdrawData] = useState<{amount: number, accountName: string, transactionId: string} | null>(null);
 
+  // Estado para forzar actualización del balance
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
+
   // Auto-logout después de 3 minutos de inactividad
   const AUTO_LOGOUT_TIME = 3 * 60 * 1000; // 3 minutos en millisegundos
 
@@ -77,21 +83,56 @@ export default function Home() {
     setLastActivity(Date.now());
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("gyro_user");
-    setUser(null);
-    setCurrentView("auth");
+  const logout = useCallback(async () => {
+    try {
+      await clearAllSecureData();
+      setUser(null);
+      setCurrentView("auth");
+      console.log('✅ User logged out and secure data cleared');
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+      // Fallback: clear state anyway
+      setUser(null);
+      setCurrentView("auth");
+    }
   }, []);
 
+  // Inicialización de la app con almacenamiento seguro
   useEffect(() => {
-    // Siempre comenzar con splash, nunca auto-login
-    // Esto asegura que siempre se pida PIN
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-      setCurrentView("auth");
-    }, 3000);
+    const initializeApp = async () => {
+      try {
+        // Migrar datos existentes de localStorage si existen
+        await migrateFromLocalStorage();
+        
+        // Intentar cargar usuario del almacenamiento seguro
+        const savedUser = await getUserData();
+        
+        if (savedUser) {
+          console.log('✅ User data loaded from secure storage');
+          setUser(savedUser);
+          // No auto-login, siempre mostrar splash y pedir autenticación
+          setTimeout(() => {
+            setShowSplash(false);
+            setCurrentView("auth");
+          }, 3000);
+        } else {
+          // No hay usuario guardado, mostrar auth después del splash
+          setTimeout(() => {
+            setShowSplash(false);
+            setCurrentView("auth");
+          }, 3000);
+        }
+      } catch (error) {
+        console.error('❌ Error initializing app:', error);
+        // En caso de error, continuar normalmente
+        setTimeout(() => {
+          setShowSplash(false);
+          setCurrentView("auth");
+        }, 3000);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    initializeApp();
   }, []);
 
   // Monitor de inactividad
@@ -105,7 +146,7 @@ export default function Home() {
         user &&
         currentView === "dashboard"
       ) {
-        console.log("Auto-logout por inactividad");
+        console.log("🔒 Auto-logout por inactividad");
         logout();
       }
     };
@@ -148,17 +189,35 @@ export default function Home() {
     setCurrentView("auth");
   };
 
-  const handleAuthSuccess = (userData: User) => {
-    // Asegurar que siempre haya un stellarPublicKey
-    const userWithStellar: User = {
-      ...userData,
-      stellarPublicKey: userData.stellarPublicKey || `STELLAR_${userData.id}_${Date.now()}`
-    };
-    
-    setUser(userWithStellar);
-    localStorage.setItem("gyro_user", JSON.stringify(userWithStellar));
-    setCurrentView("dashboard");
-    resetActivity();
+  const handleAuthSuccess = async (userData: User) => {
+    try {
+      // Asegurar que siempre haya un stellarPublicKey
+      const stellarKey = userData.stellarPublicKey || `STELLAR_${userData.id}_${Date.now()}`;
+      
+      const userWithStellar: UserData = {
+        ...userData,
+        stellarPublicKey: stellarKey
+      };
+      
+      // Guardar en almacenamiento seguro
+      await saveUserData(userWithStellar);
+      
+      setUser(userWithStellar);
+      setCurrentView("dashboard");
+      resetActivity();
+      
+      console.log('✅ User authenticated and data saved securely');
+    } catch (error) {
+      console.error('❌ Error saving user data after auth:', error);
+      // Fallback: continuar sin almacenamiento para no bloquear la app
+      const fallbackUser: User = {
+        ...userData,
+        stellarPublicKey: userData.stellarPublicKey || `STELLAR_${userData.id}_${Date.now()}`
+      };
+      setUser(fallbackUser);
+      setCurrentView("dashboard");
+      resetActivity();
+    }
   };
 
 
@@ -166,58 +225,111 @@ export default function Home() {
     setCurrentView("signup");
   };
 
-  const handleDeposit = () => {
-    // Check if KYC is completed
-    if (typeof window !== 'undefined') {
-      const kycCompleted = localStorage.getItem("kyc_completed");
+  const handleDeposit = async () => {
+    // Check if KYC is completed using secure storage
+    try {
+      const kycCompleted = await getKYCStatus();
       if (!kycCompleted) {
         setKycTransactionType("deposito");
         setShowKycModal(true);
         return;
       }
+      
+      // If KYC is completed, go to deposit page
+      setShowDepositPage(true);
+    } catch (error) {
+      console.error('❌ Error checking KYC status:', error);
+      // Fallback: show KYC modal if we can't check
+      setKycTransactionType("deposito");
+      setShowKycModal(true);
     }
-    
-    // If KYC is completed, go to deposit page
-    setShowDepositPage(true);
   };
 
-  const handleWithdraw = () => {
-    // Check if KYC is completed
-    if (typeof window !== 'undefined') {
-      const kycCompleted = localStorage.getItem("kyc_completed");
+  const handleWithdraw = async () => {
+    // Check if KYC is completed using secure storage
+    try {
+      const kycCompleted = await getKYCStatus();
       if (!kycCompleted) {
         setKycTransactionType("retiro");
         setShowKycModal(true);
         return;
       }
+      
+      // If KYC is completed, go to withdraw page
+      setShowWithdrawPage(true);
+    } catch (error) {
+      console.error('❌ Error checking KYC status:', error);
+      // Fallback: show KYC modal if we can't check
+      setKycTransactionType("retiro");
+      setShowKycModal(true);
     }
-    
-    // If KYC is completed, go to withdraw page
-    setShowWithdrawPage(true);
   };
 
-  const handleKycComplete = () => {
-    setShowKycModal(false);
-    if (kycTransactionType === "deposito") {
-      setShowDepositPage(true);
-    } else if (kycTransactionType === "retiro") {
-      setShowWithdrawPage(true);
+  const handleKycComplete = async () => {
+    try {
+      await saveKYCStatus(true);
+      setShowKycModal(false);
+      
+      if (kycTransactionType === "deposito") {
+        setShowDepositPage(true);
+      } else if (kycTransactionType === "retiro") {
+        setShowWithdrawPage(true);
+      }
+    } catch (error) {
+      console.error('❌ Error saving KYC status:', error);
+      // Continue anyway
+      setShowKycModal(false);
+      if (kycTransactionType === "deposito") {
+        setShowDepositPage(true);
+      } else if (kycTransactionType === "retiro") {
+        setShowWithdrawPage(true);
+      }
     }
     // Reset KYC transaction type
     setKycTransactionType(null);
   };
 
+  // Función para refrescar el balance del dashboard
+  const refreshDashboardBalance = useCallback(() => {
+    console.log("🔄 Refrescando balance del dashboard...");
+    // Incrementar la key para forzar re-render del hook useContractBalance
+    setBalanceRefreshKey(prev => {
+      const newKey = prev + 1;
+      console.log("🔄 Balance refresh key actualizada:", newKey);
+      return newKey;
+    });
+  }, []);
+
   // Add function to clear all data for testing
-  const clearAllData = () => {
-    localStorage.removeItem("gyro_user");
-    localStorage.removeItem("gyro_users");
-    window.location.reload();
+  const clearAllData = async () => {
+    try {
+      await clearAllSecureData();
+      // También limpiar localStorage por si acaso
+      localStorage.removeItem("gyro_user");
+      localStorage.removeItem("gyro_users");
+      localStorage.removeItem("kyc_completed");
+      window.location.reload();
+    } catch (error) {
+      console.error('❌ Error clearing secure data:', error);
+      // Fallback: clear localStorage only
+      localStorage.removeItem("gyro_user");
+      localStorage.removeItem("gyro_users");
+      localStorage.removeItem("kyc_completed");
+      window.location.reload();
+    }
   };
 
   // Add function to clear only KYC status for testing
-  const clearKYCStatus = () => {
-    localStorage.removeItem("kyc_completed");
-    alert("Estado KYC limpiado. El próximo depósito/retiro solicitará verificación.");
+  const clearKYCStatus = async () => {
+    try {
+      await saveKYCStatus(false);
+      alert("Estado KYC limpiado. El próximo depósito/retiro solicitará verificación.");
+    } catch (error) {
+      console.error('❌ Error clearing KYC status:', error);
+      // Fallback: clear localStorage
+      localStorage.removeItem("kyc_completed");
+      alert("Estado KYC limpiado (fallback). El próximo depósito/retiro solicitará verificación.");
+    }
   };
 
   // Show splash screen
@@ -262,8 +374,10 @@ export default function Home() {
   if (currentView === "history" && user) {
     return (
       <div className="history-container">
-        <HistoryPage
+        <TransactionHistoryPage
           onBack={() => setCurrentView("dashboard")}
+          userAddress={user.stellarPublicKey || ''}
+          onNavigateToSettings={() => setCurrentView("settings")}
           onNavigateToMore={() => setCurrentView("more")}
         />
       </div>
@@ -331,6 +445,7 @@ export default function Home() {
             setShowDepositBolivianosPage(false);
             setShowDepositQRPage(true);
           }}
+          userAddress={user.stellarPublicKey}
         />
       </div>
     );
@@ -361,9 +476,11 @@ export default function Home() {
             setCurrentView("dashboard");
           }}
           amount={depositData.amount}
-          reference={depositData.reference}
-          currency={depositData.currency}
-          cryptocurrency={depositData.cryptocurrency}
+          reference={depositData.reference || ""}
+          currency={depositData.currency || "BOB"}
+          cryptocurrency={depositData.cryptocurrency || "USDC"}
+          stellarPublicKey={user.stellarPublicKey}
+          onRefreshBalance={refreshDashboardBalance}
         />
       </div>
     );
@@ -400,14 +517,8 @@ export default function Home() {
             setShowWithdrawBolivianosPage(false);
             setShowWithdrawPage(true);
           }}
-          onConfirmWithdraw={(amount, bankAccount) => {
-            // TODO: Implement bolivianos withdrawal logic
-            console.log('Confirming bolivianos withdrawal:', { amount, bankAccount, selectedAccount });
-            alert(`Retiro confirmado: ${amount} USDT a cuenta ${bankAccount}`);
-            setShowWithdrawBolivianosPage(false);
-            setSelectedAccount(null); // Reset selected account
-            setCurrentView("dashboard");
-          }}
+          userAddress={user.stellarPublicKey}
+          onRefreshBalance={refreshDashboardBalance}
         />
       </div>
     );
@@ -554,6 +665,7 @@ export default function Home() {
     return (
       <div className="withdraw-confirmation-container">
         <WithdrawConfirmationPage
+          userAddress={user.stellarPublicKey}
           onBack={() => {
             setShowWithdrawConfirmation(false);
             setShowWithdrawPage(true);
@@ -617,30 +729,41 @@ export default function Home() {
           onNavigateToSettings={() => setCurrentView("settings")}
           onNavigateToDeposit={handleDeposit}
           onNavigateToWithdraw={handleWithdraw}
-          onNavigateToQRScanner={() => {
-            if (typeof window !== 'undefined') {
-              const kycCompleted = localStorage.getItem("kyc_completed");
+          onNavigateToQRScanner={async () => {
+            try {
+              const kycCompleted = await getKYCStatus();
               if (!kycCompleted) {
                 setKycTransactionType("retiro");
                 setShowKycModal(true);
                 return;
               }
+              setShowQRScanner(true);
+            } catch (error) {
+              console.error('❌ Error checking KYC status:', error);
+              // Fallback: show KYC modal if we can't check
+              setKycTransactionType("retiro");
+              setShowKycModal(true);
             }
-            setShowQRScanner(true);
           }}
-          onNavigateToDepositQR={() => {
-            if (typeof window !== 'undefined') {
-              const kycCompleted = localStorage.getItem("kyc_completed");
+          onNavigateToDepositQR={async () => {
+            try {
+              const kycCompleted = await getKYCStatus();
               if (!kycCompleted) {
                 setKycTransactionType("deposito");
                 setShowKycModal(true);
                 return;
               }
+              // Crear datos de depósito sin monto para QR directo
+              setDepositData({ amount: 0, reference: "QR-Directo" });
+              setShowDepositQRPage(true);
+            } catch (error) {
+              console.error('❌ Error checking KYC status:', error);
+              // Fallback: show KYC modal if we can't check
+              setKycTransactionType("deposito");
+              setShowKycModal(true);
             }
-            // Crear datos de depósito sin monto para QR directo
-            setDepositData({ amount: 0, reference: "QR-Directo" });
-            setShowDepositQRPage(true);
           }}
+          balanceRefreshKey={balanceRefreshKey}
         />
         
         {/* KYC Modal */}

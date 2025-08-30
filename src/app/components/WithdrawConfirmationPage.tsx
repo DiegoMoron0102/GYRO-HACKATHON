@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
-import {
-  getLocalBalance,
-  updateLocalBalance
-} from "@/utils/balanceManager";
+import { useContractBalance } from "@/hooks/useContractBalance";
+import { useWithdraw } from "@/hooks/useWithdraw";
+import { ADMIN_CONFIG } from "@/lib/adminConfig";
 
 interface WithdrawConfirmationPageProps {
   onBack?: () => void;
@@ -16,36 +15,66 @@ interface WithdrawConfirmationPageProps {
     name: string;
     details: string;
   };
+  userAddress?: string;
 }
 
 export default function WithdrawConfirmationPage({
   onBack,
   onConfirmWithdraw,
   selectedAccount,
+  userAddress
 }: WithdrawConfirmationPageProps) {
   const [amount, setAmount] = useState<number>(0);
-  const [localBalance, setLocal] = useState<number>(0);
   const { sellRate } = useExchangeRate();
 
-  useEffect(() => {
-    setLocal(getLocalBalance());
-  }, []);
+  // Hook para obtener el balance real del contrato
+  const { 
+    balance: contractBalance, 
+    loading: balanceLoading, 
+    refreshBalance 
+  } = useContractBalance({ 
+    userAddress: userAddress || '',
+    assetType: "USDC"
+  });
+
+  // Hook de retiro real
+  const { withdraw, isLoading, error } = useWithdraw({
+    userAddress: userAddress || "",
+    onWithdrawSuccess: () => {
+      console.log('✅ Retiro exitoso, actualizando balance...');
+      refreshBalance();
+    }
+  });
+
+  // Conversión: USDC del contrato a BOB para mostrar al usuario
+  const availableBalanceBOB = contractBalance ? Math.floor(contractBalance / ADMIN_CONFIG.EXCHANGE_RATE) : 0;
 
   const handleAmountChange = (value: string) => {
     const numericValue = parseFloat(value) || 0;
     setAmount(numericValue);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (isValidAmount() && onConfirmWithdraw) {
-      updateLocalBalance(-amount); // Resta al saldo
-      setLocal(getLocalBalance()); // Actualiza el estado local para reflejarlo
-      onConfirmWithdraw(amount);
+      try {
+        console.log('🚀 Iniciando retiro real de', amount, 'BOB');
+        
+        // Procesar el retiro usando el hook de smart contract
+        await withdraw(amount);
+        
+        console.log('✅ Retiro completado exitosamente');
+        
+        // Llamar al callback original para continuar el flujo
+        onConfirmWithdraw(amount);
+      } catch (err) {
+        console.error('❌ Error al procesar retiro:', err);
+        alert(`Error al procesar el retiro: ${err}`);
+      }
     }
   };
 
   const isValidAmount = () => {
-    return amount > 0 && amount <= localBalance;
+    return amount > 0 && amount <= availableBalanceBOB && !balanceLoading;
   };
 
   if (!selectedAccount) {
@@ -105,8 +134,10 @@ export default function WithdrawConfirmationPage({
                       </svg>
                     </div>
                     <div>
-                      <p className="font-medium text-[#1C2317]">USDT</p>
-                      <p className="text-sm text-gray-500">Disponible: {localBalance.toFixed(2)} USDT</p>
+                      <p className="font-medium text-[#1C2317]">USDC</p>
+                      <p className="text-sm text-gray-500">
+                        Disponible: {balanceLoading ? "Cargando..." : `${availableBalanceBOB.toFixed(2)} BOB`}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -150,7 +181,7 @@ export default function WithdrawConfirmationPage({
                 placeholder="0.00"
                 className="w-full p-4 text-2xl font-bold bg-gray-50 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-[#2A906F] transition-all"
                 min="0"
-                max={localBalance}
+                max={availableBalanceBOB}
                 step="0.01"
               />
             </div>
@@ -167,11 +198,28 @@ export default function WithdrawConfirmationPage({
           <div className="p-4">
             <button
               onClick={handleConfirm}
-              disabled={!isValidAmount()}
-              className="w-full py-4 rounded-2xl font-semibold bg-[#2A906F] text-white hover:bg-[#1F6B52] transition-colors shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
+              disabled={!isValidAmount() || isLoading}
+              className={`w-full py-4 rounded-2xl font-semibold transition-colors shadow-lg ${
+                isValidAmount() && !isLoading
+                  ? 'bg-[#2A906F] text-white hover:bg-[#1F6B52]'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              Retirar
+              {isLoading ? 'Procesando retiro...' : 'Retirar'}
             </button>
+            
+            {/* Debug info */}
+            <div className="mt-2 text-xs text-gray-500 space-y-1">
+              <div>Debug: Amount={amount}, Valid={isValidAmount().toString()}</div>
+              <div>AvailableBOB={availableBalanceBOB}, Loading={balanceLoading.toString()}</div>
+              <div>UserAddress={userAddress?.slice(0,8)}..., ContractBalance={contractBalance}</div>
+            </div>
+            
+            {error && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">❌ Error: {error}</p>
+              </div>
+            )}
           </div>
         </section>
       </main>

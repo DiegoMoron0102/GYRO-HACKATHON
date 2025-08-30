@@ -4,9 +4,20 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import TransactionDetailModal from "./TransactionDetailModal";
 import { useExchangeRate } from '@/hooks/useExchangeRate';
-import { getLocalBalance } from "@/utils/balanceManager"; // Importamos la función para obtener el balance simulado
+import { useContractBalance } from '@/hooks/useContractBalance';
+import { useTransactionHistory } from '@/hooks/useTransactionHistory';
 
 //import * as Client from "../../../packages/user";
+
+interface Transaction {
+  id: string;
+  type: "retiro" | "deposito" | "transferencia";
+  amount: number;
+  merchant: string;
+  date: string;
+  time: string;
+  transactionNumber: string;
+}
 
 interface User {
   id: number;
@@ -38,6 +49,7 @@ interface DashboardProps {
   onNavigateToWithdraw: () => void;
   onNavigateToQRScanner: () => void;
   onNavigateToDepositQR: () => void;
+  balanceRefreshKey?: number; // Key para forzar refrescar balance
 }
 
 /* ───────── Fake conversión XLM→USDC para MVP ───────── */
@@ -52,6 +64,7 @@ export default function Dashboard({
   onNavigateToWithdraw,
   onNavigateToQRScanner,
   onNavigateToDepositQR,
+  balanceRefreshKey
 }: DashboardProps) {
   /* ---------- estado ---------- */
   
@@ -61,49 +74,79 @@ export default function Dashboard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const { buyRate, sellRate, loading: rateLoading, error: rateError, refreshRate } = useExchangeRate();
+
  
   // Clave de Stellar del usuario. Se inicializa con el valor de las props o del localStorage.
   
   
-  const [simulatedBalance, setSimulatedBalance] = useState<number>(getLocalBalance());
+  // Obtener la dirección del usuario desde localStorage o props
+  const userAddress = user.stellarPublicKey || localStorage.getItem('userAddress') || undefined;
+  
+  // Usar el hook del contrato para obtener el balance real
+  const { balance: contractBalance, loading: balanceLoading, error: balanceError, refreshBalance } = useContractBalance({
+    userAddress,
+    assetType: "USDC",
+    refreshKey: balanceRefreshKey
+  });
 
-useEffect(() => {
-  const interval = setInterval(() => setSimulatedBalance(getLocalBalance()), 1000);
-  return () => clearInterval(interval);
-}, []);
+  // Obtener historial de transacciones reales
+  const { transactions: recentTransactions, isLoading: transactionsLoading, refreshHistory } = useTransactionHistory({
+    userAddress: userAddress || ''
+  });
 
+  // Mostrar solo las 3 transacciones más recientes en el dashboard
+  const dashboardTransactions = recentTransactions.slice(0, 3).map(tx => {
+    // Determinar el tipo de transacción
+    const getTransactionType = () => {
+      if (tx.transaction_type?.tag === 'Transfer') {
+        // Si el from es el admin, es un depósito
+        if (tx.from && tx.from.includes('GBHHQYYP6JMNBVDF5Y6JM3E3MMQFJNIFSOTSLYJFPKVWWYEQK2OR35J7')) {
+          return 'deposito';
+        }
+        // Si el to es el admin, es un retiro
+        if (tx.to && tx.to.includes('GBHHQYYP6JMNBVDF5Y6JM3E3MMQFJNIFSOTSLYJFPKVWWYEQK2OR35J7')) {
+          return 'retiro';
+        }
+      }
+      return 'transferencia';
+    };
 
+    const transactionType = getTransactionType();
+    
+    return {
+      id: tx.tx_id,
+      type: transactionType as 'retiro' | 'deposito' | 'transferencia',
+      amount: transactionType === 'retiro' ? -tx.amount : tx.amount,
+      merchant: transactionType === 'deposito' ? 'Depósito' : 
+                transactionType === 'retiro' ? 'Retiro' : 'Transferencia',
+      date: new Date(tx.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' }),
+      time: new Date(tx.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      transactionNumber: tx.tx_id
+    };
+  });
 
-  /* ---------- dummy transacciones ---------- */
-  const transactions: Transaction[] = [
-    {
-      id: "1",
-      type: "retiro",
-      amount: -35.23,
-      merchant: "Retiro",
-      date: "Junio 26, 2024",
-      time: "12:32",
-      transactionNumber: "23010412432431",
-    },
-    {
-      id: "2",
-      type: "transferencia",
-      amount: 430.0,
-      merchant: "De Diego",
-      date: "Junio 25, 2024",
-      time: "02:15",
-      transactionNumber: "23010412432432",
-    },
-    {
-      id: "3",
-      type: "retiro",
-      amount: -19.0,
-      merchant: "Retiro",
-      date: "Dic 24, 2024",
-      time: "14:05",
-      transactionNumber: "23010412432433",
-    },
-  ];
+  console.log("📊 Dashboard: Balance info", {
+    userAddress,
+    contractBalance,
+    balanceLoading,
+    balanceError,
+    balanceRefreshKey
+  });
+
+  // Fallback al balance simulado si no hay dirección o hay error
+  const [simulatedBalance, setSimulatedBalance] = useState<number>(0);
+  
+  useEffect(() => {
+    if (!userAddress || balanceError) {
+      const stored = localStorage.getItem("simulatedBalance");
+      setSimulatedBalance(stored ? parseFloat(stored) : 0);
+    }
+  }, [userAddress, balanceError]);
+
+  // Usar el balance del contrato si está disponible, sino el simulado
+  const displayBalance = userAddress && !balanceError ? contractBalance : simulatedBalance;
+  
+  console.log("💰 Dashboard: Final display balance", displayBalance);
 
   /* ---------- helpers ---------- */
   const handleTransactionClick = (t: Transaction) => {
@@ -113,14 +156,49 @@ useEffect(() => {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedTransaction(null);
-    
   };
 
-  /* ---------- DEBUG ---------- */
-  const clearKYCStatus = () => {
-    localStorage.removeItem("kyc_completed");
-    alert("Estado KYC limpiado.");
+  const getTransactionIcon = (transaction: Transaction) => {
+    const isNegative = transaction.amount < 0;
+    return isNegative ? (
+      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M8 14L8 2M14 8L2 8"
+            stroke="#DC2626"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    ) : (
+      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            d="M8 2L8 14M2 8L14 8"
+            stroke="#059669"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    );
   };
+
+  const getTransactionAmount = (transaction: Transaction) => {
+    const isNegative = transaction.amount < 0;
+    const amount = Math.abs(transaction.amount).toFixed(2);
+    const colorClass = isNegative ? 'text-red-600' : 'text-green-600';
+    const sign = isNegative ? '-' : '+';
+    
+    return (
+      <span className={`font-medium ${colorClass}`}>
+        {sign}${amount}
+      </span>
+    );
+  };
+
+
 
 
   return (
@@ -169,10 +247,34 @@ useEffect(() => {
           {/* Balance Card */}
           <div className="bg-gradient-to-br from-[#2A906F] to-[#1F6B52] rounded-2xl p-6">
             <div className="text-center mb-6">
-            <p className="text-sm opacity-75 mb-1">Saldo</p>
-            <p className="text-4xl font-bold">
-              {simulatedBalance.toFixed(2)} USDC
-            </p>
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <p className="text-sm opacity-75">Saldo</p>
+              {userAddress && (
+                <button 
+                  onClick={refreshBalance}
+                  className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                  title="Actualizar balance"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <div className="text-4xl font-bold">
+              {balanceLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                `${displayBalance.toFixed(2)} USDC`
+              )}
+            </div>
+            {balanceError && (
+              <p className="text-xs text-red-300 mt-1">
+                ⚠️ Error cargando balance
+              </p>
+            )}
           </div>
             <div className="flex justify-center gap-6">
               <button 
@@ -294,7 +396,21 @@ useEffect(() => {
           {/* Transactions */}
           <div className="mb-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Movimientos</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-gray-900">Movimientos</h3>
+                {userAddress && (
+                  <button 
+                    onClick={refreshHistory}
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Actualizar historial"
+                    disabled={transactionsLoading}
+                  >
+                    <svg className={`w-4 h-4 text-gray-400 ${transactionsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <button 
                 onClick={onNavigateToHistory}
                 className="text-sm text-gray-500 hover:text-gray-700"
@@ -304,114 +420,47 @@ useEffect(() => {
             </div>
 
             <div className="space-y-3">
-              {/* Transaction 1 - Retiro */}
-              <button 
-                onClick={() => handleTransactionClick(transactions[0])}
-                className="w-full flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path
-                        d="M8 14L8 2M14 8L2 8"
-                        stroke="#DC2626"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900">Retiro</p>
-                    <p className="text-sm text-gray-500">Hoy 12:32</p>
-                  </div>
+              {transactionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-gray-300 border-t-[#2A906F] rounded-full animate-spin"></div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-red-600 font-medium">-$35.23</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M6 12L10 8L6 4"
-                      stroke="#6B7280"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+              ) : dashboardTransactions.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-sm">No hay transacciones recientes</p>
                 </div>
-              </button>
-
-              <div className="h-px bg-gray-100"></div>
-
-              {/* Transaction 2 - Transferencia Recibida */}
-              <button 
-                onClick={() => handleTransactionClick(transactions[1])}
-                className="w-full flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path
-                        d="M8 2L8 14M2 8L14 8"
-                        stroke="#059669"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900">De Diego</p>
-                    <p className="text-sm text-gray-500">Ayer 02:15</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-green-600 font-medium">+$430.00</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M6 12L10 8L6 4"
-                      stroke="#6B7280"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              </button>
-
-              <div className="h-px bg-gray-100"></div>
-
-              {/* Transaction 3 - Retiro */}
-              <button 
-                onClick={() => handleTransactionClick(transactions[2])}
-                className="w-full flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path
-                        d="M8 14L8 2M14 8L2 8"
-                        stroke="#DC2626"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-gray-900">Retiro</p>
-                    <p className="text-sm text-gray-500">Dic 26, 14:05</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-red-600 font-medium">-$19.00</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M6 12L10 8L6 4"
-                      stroke="#6B7280"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              </button>
+              ) : (
+                dashboardTransactions.map((transaction, index) => (
+                  <React.Fragment key={transaction.id}>
+                    <button 
+                      onClick={() => handleTransactionClick(transaction)}
+                      className="w-full flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {getTransactionIcon(transaction)}
+                        <div className="text-left">
+                          <p className="font-medium text-gray-900">{transaction.merchant}</p>
+                          <p className="text-sm text-gray-500">{transaction.date} {transaction.time}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {getTransactionAmount(transaction)}
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <path
+                            d="M6 12L10 8L6 4"
+                            stroke="#6B7280"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </div>
+                    </button>
+                    {index < dashboardTransactions.length - 1 && (
+                      <div className="h-px bg-gray-100"></div>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
             </div>
           </div>
         </section>
@@ -560,15 +609,7 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Debug button for KYC testing - only show in development */}
-        {process.env.NODE_ENV === 'development' && (
-          <button
-            onClick={clearKYCStatus}
-            className="fixed bottom-20 left-4 bg-orange-500 text-white px-3 py-2 rounded text-xs z-40"
-          >
-            Reset KYC
-          </button>
-        )}
+
 
         <style jsx>{`
           @keyframes slide-up {

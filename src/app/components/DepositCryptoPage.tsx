@@ -46,8 +46,9 @@ export default function DepositCryptoPage({ onBack }: { onBack?: () => void }) {
         onBack={() => setShowQR(false)}
         amount={numericAmount}
         currency={selectedCrypto}
+        cryptocurrency={selectedCrypto}
+        reference=""
         stellarPublicKey={publicKey}
-
       />
     );
   }

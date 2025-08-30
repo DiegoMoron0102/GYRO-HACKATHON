@@ -3,13 +3,17 @@
 import React, { useState } from "react";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
 
-
 interface DepositBolivianosPageProps {
   onBack?: () => void;
-  onConfirmDeposit?: (amount: number, reference: string) => void;
+  onConfirmDeposit: (amount: number, reference: string) => void;
+  userAddress?: string;
 }
 
-export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: DepositBolivianosPageProps) {
+export default function DepositBolivianosPage({
+  onBack,
+  onConfirmDeposit,
+  userAddress
+}: DepositBolivianosPageProps) {
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
   
@@ -31,10 +35,19 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const numericAmount = parseFloat(amount);
-    if (numericAmount > 0 && numericAmount <= maxAmount && onConfirmDeposit) {
-      onConfirmDeposit(numericAmount, reference);
+    if (numericAmount > 0 && numericAmount <= maxAmount) {
+      console.log("💳 Navegando al QR para depósito en BOB:", {
+        bobAmount: numericAmount,
+        reference,
+        userAddress
+      });
+
+      // En lugar de procesar el depósito, navegar al QR
+      if (onConfirmDeposit) {
+        onConfirmDeposit(numericAmount, reference);
+      }
     }
   };
 
@@ -43,9 +56,14 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
     return numericAmount > 0 && numericAmount <= maxAmount;
   };
 
+  // Resetear estado cuando se monta el componente - ya no necesario
+  React.useEffect(() => {
+    // Component mounted
+  }, []);
+
   return (
     <div className="deposit-bolivianos-full-screen">
-      <main className="deposit-bolivianos-main">
+        <main className="deposit-bolivianos-main">
         {/* Header */}
         <header className="flex items-center justify-between p-4 border-b bg-white">
           <button onClick={onBack} className="p-2">
@@ -83,9 +101,19 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
           <div className="flex justify-between items-center py-4">
             <span className="text-[#698282] font-medium">Recibirás</span>
             <span className="text-[#1C2317] font-medium">
-              {amount ? calculateUSDT(parseFloat(amount) || 0) : "0.00"} USDT
+              {amount ? calculateUSDT(parseFloat(amount) || 0) : "0.00"} USDC
             </span>
           </div>
+
+          {/* Advertencia sobre conversión */}
+          {amount && parseFloat(amount) > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+              <p className="text-yellow-700 text-xs">
+                ⚠️ Nota: Los montos se redondean a enteros en el smart contract. 
+                Recibirás {Math.floor(parseFloat(calculateUSDT(parseFloat(amount) || 0)))} USDC.
+              </p>
+            </div>
+          )}
 
           {/* Reference Input */}
           <div className="space-y-2">
@@ -121,7 +149,7 @@ export default function DepositBolivianosPage({ onBack, onConfirmDeposit }: Depo
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
-            Confirmar depósito
+            Continuar al QR
           </button>
         </footer>
       </main>

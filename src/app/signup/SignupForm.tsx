@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRegisterUserProgrammatic } from "@/hooks/useRegisterUser"; // Ajusta el path si es necesario
+import { useRegisterUserProgrammatic } from "@/hooks/useRegisterUser";
 
 interface User {
   id: number;
@@ -61,73 +61,69 @@ export default function SignupForm({ onSignupSuccess, onBackToLogin }: SignupFor
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validar todos los campos
-  const newErrors: {[key: string]: string} = {};
-  Object.entries(formData).forEach(([field, value]) => {
-    const error = validateField(field, value);
-    if (error) newErrors[field] = error;
-  });
-
-  if (Object.keys(newErrors).length > 0) {
-    setErrors(newErrors);
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-    // 1. Registrar usuario en Soroban, el hook se encarga de todo
-    const { publicKey } = await register({
-      pin: formData.pin,
-      name: formData.name,
-      email: formData.email,
+    // Validar todos los campos
+    const newErrors: {[key: string]: string} = {};
+    Object.entries(formData).forEach(([field, value]) => {
+      const error = validateField(field, value);
+      if (error) newErrors[field] = error;
     });
 
-    // 2. Crear usuario local con las claves devueltas por el hook
-    const newUser: User = {
-      id: Date.now(),
-      name: formData.name,
-      email: formData.email,
-      pin: formData.pin,
-      stellarPublicKey: publicKey,   // ← resultado del hook
-      createdAt: new Date().toISOString()
-    };
-
-    // 3. Guardar en localStorage (simulando backend)
-    const existingUsers = JSON.parse(localStorage.getItem("gyro_users") || "[]");
-    if (existingUsers.some((user: User) => user.email === formData.email)) {
-      setErrors({ email: 'Este email ya está registrado' });
-      setIsLoading(false);
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
-    existingUsers.push(newUser);
-    localStorage.setItem("gyro_users", JSON.stringify(existingUsers));
+    setIsLoading(true);
 
-    onSignupSuccess(newUser);
+    try {
+      // Registrar usuario en Soroban
+      await register({
+        pin: formData.pin,
+        name: formData.name,
+        email: formData.email,
+      });
 
-   } catch (error: unknown) {
-    // ✅ CORREGIDO: Tipado seguro para el error
-    const errorMessage = error instanceof Error 
-      ? error.message 
-      : typeof error === 'string' 
-        ? error 
-        : "Error desconocido al crear la cuenta.";
-    
-    setErrors({
-      general: errorMessage || errorRegister || "Error desconocido al crear la cuenta."
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+      // Crear usuario local
+      const newUser: User = {
+        id: Date.now(),
+        name: formData.name,
+        email: formData.email,
+        pin: formData.pin,
+        stellarPublicKey: localStorage.getItem("publicKey") || undefined,
+        createdAt: new Date().toISOString()
+      };
+
+      // Guardar en localStorage (simulando backend)
+      const existingUsers = JSON.parse(localStorage.getItem("gyro_users") || "[]");
+      if (!existingUsers.some((user: User) => user.email === formData.email)) {
+        existingUsers.push(newUser);
+        localStorage.setItem("gyro_users", JSON.stringify(existingUsers));
+      }
+
+      // Continuar directamente al dashboard
+      onSignupSuccess(newUser);
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : typeof error === 'string' 
+          ? error 
+          : "Error desconocido al crear la cuenta.";
+      
+      setErrors({
+        general: errorMessage || errorRegister || "Error desconocido al crear la cuenta."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
   return (
     <div className="signup-full-screen">
-      <main className="signup-main">
+        <main className="signup-main">
         {/* Header */}
         <header className="flex items-center justify-between p-4 bg-white">
           <button 

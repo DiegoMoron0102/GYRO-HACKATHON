@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { Http } from '@capacitor-community/http';
+import { useState, useEffect, useCallback } from "react";
+import { Capacitor } from "@capacitor/core";
+import { Http } from "@capacitor-community/http";
 
 interface ExchangeRateResponse {
   blue: {
@@ -11,19 +11,10 @@ interface ExchangeRateResponse {
   };
 }
 
-interface UseExchangeRateReturn {
-  buyRate: number;
-  sellRate: number;
-  loading: boolean;
-  error: string | null;
-  lastUpdated: Date | null;
-  refreshRate: () => Promise<void>;
-}
-
-export function useExchangeRate(): UseExchangeRateReturn {
-  const [buyRate, setBuyRate] = useState<number>(14.66); // Valor por defecto
-  const [sellRate, setSellRate] = useState<number>(14.73); // Valor por defecto
-  const [loading, setLoading] = useState<boolean>(false);
+export function useExchangeRate() {
+  const [buyRate, setBuyRate] = useState(14.66);
+  const [sellRate, setSellRate] = useState(14.73);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -32,76 +23,48 @@ export function useExchangeRate(): UseExchangeRateReturn {
     setError(null);
 
     const isNative = Capacitor.isNativePlatform();
+    // En web: siempre al proxy local, sin headers extra
+    const url = isNative
+      ? "https://www.dolarbluebolivia.click/api/exchange_currencies"
+      : `${window.location.origin}/api/rate-proxy`;
 
-    const URL = isNative
-    ? "https://www.dolarbluebolivia.click/api/exchange_currencies"
-    : "/api/rate-proxy"; // ← usar siempre el proxy en web
+    console.log("🔍 Fetching exchange rate from:", url);
 
     try {
       let data: ExchangeRateResponse;
 
       if (isNative) {
-        const res = await Http.get({
-          url: URL,
-          headers: { 'Content-Type': 'application/json' },
-          params: {}, // ← obligatorio aunque esté vacío
-        });
+        const res = await Http.get({ url });
         data = res.data as ExchangeRateResponse;
       } else {
-        const res = await fetch(URL);
-        if (!res.ok) throw new Error("Error al obtener tasa de cambio");
+        const res = await fetch(url);
+        console.log("↩️  HTTP status:", res.status);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         data = await res.json();
       }
 
-      if (
-        data?.blue &&
-        typeof data.blue.buy === "number" &&
-        typeof data.blue.sell === "number"
-      ) {
-        setBuyRate(data.blue.sell + 0.30);   // Bs → USDT (compra)
-        setSellRate(data.blue.buy + 0.30);   // USDT → Bs (venta)
+      if (data.blue && typeof data.blue.buy === "number" && typeof data.blue.sell === "number") {
+        setBuyRate(data.blue.sell + 0.3);
+        setSellRate(data.blue.buy + 0.3);
         setLastUpdated(new Date());
-        console.log("✅ Tasa blue actualizada:", data.blue);
+        console.log("✅ Tasa blue:", data.blue);
       } else {
-        throw new Error("Formato de respuesta inválido");
+        throw new Error("Formato inesperado");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error desconocido";
+      const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
       console.error("❌ Error obteniendo tasa blue:", msg);
-      console.log("📌 Usando tasas por defecto:", { buyRate, sellRate });
     } finally {
       setLoading(false);
     }
-  }, [buyRate, sellRate]);
+  }, []);
 
   useEffect(() => {
     fetchExchangeRate();
-  }, [fetchExchangeRate]);
-
-  useEffect(() => {
-    const interval = setInterval(fetchExchangeRate, 5 * 60 * 1000); // cada 5 minutos
+    const interval = setInterval(fetchExchangeRate, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchExchangeRate]);
 
-  return {
-    buyRate,
-    sellRate,
-    loading,
-    error,
-    lastUpdated,
-    refreshRate: fetchExchangeRate,
-  };
+  return { buyRate, sellRate, loading, error, lastUpdated, refreshRate: fetchExchangeRate };
 }
-
-/* ───── Helpers ───── */
-export const convertUSDTToBS = (usdt: number, sellRate: number): number => usdt * sellRate;
-export const convertBSToUSDT = (bs: number, buyRate: number): number => bs / buyRate;
-
-export const formatCurrency = (amount: number, currency: 'USDT' | 'BS'): string =>
-  currency === 'USDT'
-    ? `${amount.toFixed(2)} USDT`
-    : `${amount.toFixed(2)} Bs`;
-
-export const formatExchangeRate = (rate: number): string =>
-  `1 USDT = ${rate.toFixed(2)} Bs`;

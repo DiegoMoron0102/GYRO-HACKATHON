@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -13,18 +17,42 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "types": [
+      "react",
+      "react-dom"
+    ],
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@hooks/*": ["./hooks/*"],
-      "@packages/*": ["./packages/*"],
-      "@utils/*": ["./utils/*"],
+      "@/*": [
+        "./src/*"
+      ],
+      "@hooks/*": [
+        "./hooks/*"
+      ],
+      "@packages/*": [
+        "./packages/*"
+      ],
+      "@utils/*": [
+        "./utils/*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    "src/types/jsx.d.ts",
+    "out/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "src/app/components/HistoryPage.tsx",
+    "src/app/components/TransactionHistoryPageNew.tsx"
+  ]
 }

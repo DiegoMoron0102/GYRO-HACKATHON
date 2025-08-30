@@ -1,0 +1,1237 @@
+CUESTIONARIO TÉCNICO AGNÓSTICO PARA GYRO - RESPUESTAS COMPLETAS
+=================================================================
+
+Basado en el análisis del código del sistema GYRO y experiencia técnica, aquí están las respuestas al cuestionario técnico:
+
+1) ARQUITECTURA Y LÍMITES DEL SISTEMA
+====================================
+
+Estilo Arquitectónico Recomendado: Monolito Modular con Event-Driven
+
+Justificación técnica:
+- MVP/Beta: Monolito modular para velocidad de desarrollo
+- Escala: Event-driven para integraciones asíncronas con PSPs y KYC
+- Código actual: Ya implementado como Next.js + Smart Contracts (híbrido funcional)
+
+Delimitación de dominios funcionales:
+domains = {
+  Authentication: "CorbadoAuth.tsx + secureStorage.ts",
+  Wallet: "DepositServiceSmart.ts + ContractBalance",
+  Conversion: "useExchangeRate.ts + adminConfig.ts",
+  OnOffRamp: "PSP integrations (pendiente)",
+  Ledger: "Smart contracts Gyro + TransactionHistory",
+  Notifications: "Capacitor push (preparado)",
+  Risk: "KYC validation + límites por tier",
+  Backoffice: "Admin dashboard (preparado)"
+}
+
+Diagrama C4 - Nivel 1 (Contexto):
+Usuario Final --> Sistema GYRO
+PSP Boliviano --> Sistema GYRO
+Proveedor KYC --> Sistema GYRO
+Red Stellar --> Sistema GYRO
+Proveedor Off-Ramp --> Sistema GYRO
+Operadores --> Sistema GYRO
+Entidades Regulatorias --> Sistema GYRO
+
+Diagrama C4 - Nivel 2 (Contenedores):
+App Móvil React Native --> API Gateway
+Web App Next.js --> API Gateway
+API Gateway --> Auth Service
+API Gateway --> Wallet Service
+API Gateway --> FX Service
+API Gateway --> Compliance Service
+Wallet Service --> Stellar Network
+Auth Service --> KYC Provider
+FX Service --> PSP Boliviano
+
+Protocolo de comunicación:
+- Sincronía: REST APIs para operaciones CRUD
+- Asincronía: Webhooks para confirmaciones PSP
+- Idempotencia: UUID + timestamp en headers
+- Versionado: Semantic versioning con deprecation notices
+
+2) CLIENTE(S) Y EXPERIENCIA DE USUARIO
+=====================================
+
+Plataformas Priorizadas:
+1. Móvil (Capacitor + React) - Implementado ✅
+2. Web (Next.js) - Implementado ✅  
+3. Desktop - Phase 2
+
+Estructura actual del proyecto:
+src/
+├── app/components/          # UI Components
+├── hooks/                   # Business Logic Hooks
+├── lib/                     # Core Services
+├── utils/                   # Utilities + secureStorage
+└── android/                 # Capacitor Mobile
+
+Ciclo de vida de sesión:
+sessionManagement = {
+  storage: "Capacitor SecureStorage",
+  autoLogout: "30 minutes inactivity",
+  tokenRefresh: "JWT refresh pattern",
+  deviceBinding: "Device fingerprint + biometrics"
+}
+
+Funcionamiento offline:
+- Queue local para transacciones pendientes
+- Exponential backoff para reintentos
+- Reconciliación automática al reconectar
+
+Instrumentación:
+- Telemetría: Sentry + custom events
+- Métricas UX: Performance API + Core Web Vitals
+- Trazas: Correlation IDs por request
+- Manejo fallos: Graceful degradation + fallbacks
+
+3) IDENTIDAD, AUTENTICACIÓN Y AUTORIZACIÓN
+==========================================
+
+Flujo Implementado:
+- Registro: Corbado Auth + KYC validation
+- 2FA: Preparado para SMS/TOTP (tier-based)
+- Recuperación: Seed phrase + device recovery
+- Caducidades: 30min sesión, 24h refresh token
+
+Controles antiabuso recomendados:
+rateLimits = {
+  login: "5 attempts/15min",
+  transactions: "10/hour tier1, 50/hour tier2",
+  kyc: "3 attempts/day"
+}
+
+Device binding: Device fingerprint + secure enclave
+IP reputation: ASN blocking + geolocation validation
+
+4) ONBOARDING Y KYC/AML
+=======================
+
+Máquina de Estados KYC:
+enum KYCState {
+  PENDING = "pending",
+  DOCUMENTS_REQUIRED = "docs_required", 
+  UNDER_REVIEW = "review",
+  APPROVED = "approved",
+  REJECTED = "rejected",
+  EXPIRED = "expired"
+}
+
+Orquestación sesiones KYC:
+- Proveedor intercambiable vía interface común
+- Estados persistidos en secureStorage
+- Callbacks asíncronos con reintentos exponenciales
+- Timeout 10 minutos por sesión
+
+Datos mínimos almacenados:
+- Hash documento identidad (no imagen completa)
+- Resultado verificación + timestamp
+- Proveedor usado + score confianza
+- Retención: 7 años, anonimización post-regulatorio
+
+Tiers operativos actuales:
+- Tier 1: $500/día, KYC básico
+- Tier 2: $2,000/día, KYC completo
+- Tier 3: $10,000/día, KYC avanzado
+
+5) PAGOS EN BOLIVIANOS (PSP / QR)
+=================================
+
+Contrato Webhook Recomendado:
+interface PSPWebhook {
+  transaction_id: string;
+  amount: number;
+  currency: "BOB";
+  status: "confirmed" | "failed" | "pending";
+  timestamp: ISO8601;
+  signature: string; // HMAC-SHA256
+  metadata: {
+    gyro_reference: string;
+    user_id: string;
+  }
+}
+
+Validación de integridad:
+const validateWebhook = (payload, signature, secret) => {
+  const expectedSignature = hmac('sha256', secret, JSON.stringify(payload));
+  return crypto.timingSafeEqual(signature, expectedSignature);
+};
+
+Gestión duplicados/reversos:
+- Idempotency key por transacción
+- Estado machine: pending -> confirmed/failed/reversed
+- Window 24h para reversos automáticos
+- Dispute handling con evidencia completa
+
+Conciliación diaria:
+- Corte automático 23:59 BOT
+- Tolerancia ±0.01 BOB por rounding
+- Reporte formato CSV/JSON
+- Alertas automáticas en discrepancias >1%
+
+6) CONVERSIÓN (FX) Y PRECIOS
+============================
+
+Modelo actual implementado:
+const FX_CONFIG = {
+  rate: 0.145, // BOB to USD
+  slippage: 0.02, // 2%
+  expiration: 300, // 5 minutes
+  margin: 0.005 // 0.5%
+}
+
+Cálculo cotizaciones:
+- Rate base + margin + slippage tolerance
+- Expiración 5min para retail, 30seg para institutional
+- Refreshing automático cada 30 segundos
+- Fallback a last-known-good rate + penalty
+
+Algoritmo multi-proveedor recomendado:
+const selectProvider = (providers) => {
+  return providers
+    .filter(p => p.healthScore > 0.8)
+    .sort((a, b) => {
+      const scoreA = (a.price * 0.4) + (a.latency * 0.3) + (a.reliability * 0.3);
+      const scoreB = (b.price * 0.4) + (b.latency * 0.3) + (b.reliability * 0.3);
+      return scoreB - scoreA;
+    })[0];
+};
+
+Health scores:
+- Latency: p95 < 2s = 1.0, >10s = 0.0
+- Reliability: 99.9% uptime = 1.0, <95% = 0.0
+- Price competitiveness: Best rate = 1.0, >2% spread = 0.0
+
+Política reintentos conversión:
+- 3 attempts with exponential backoff
+- Circuit breaker after 5 consecutive failures
+- Fallback queue para processing diferido
+- Compensación automática en fallos parciales
+
+7) ON/OFF-RAMP (BS ↔ ACTIVOS DIGITALES)
+=======================================
+
+Interfaz común recomendada:
+interface OnOffRampProvider {
+  createOrder(request: OrderRequest): Promise<OrderResponse>;
+  getOrderStatus(orderId: string): Promise<OrderStatus>;
+  cancelOrder(orderId: string): Promise<boolean>;
+  getQuote(amount: number, from: Asset, to: Asset): Promise<Quote>;
+}
+
+Normalización errores:
+enum RampError {
+  INSUFFICIENT_LIQUIDITY = "insufficient_liquidity",
+  LIMITS_EXCEEDED = "limits_exceeded", 
+  KYC_REQUIRED = "kyc_required",
+  NETWORK_ERROR = "network_error",
+  PROVIDER_MAINTENANCE = "provider_maintenance"
+}
+
+KPIs/SLAs por proveedor:
+- Latencia: p95 < 30s para órdenes
+- Disponibilidad: 99.5%
+- Tasa de éxito: >95%
+- Slippage máximo: 2%
+- Tiempo settlement: <1 hour
+
+Umbrales de alerta:
+- Latency p95 > 45s
+- Success rate < 90% over 1h
+- Availability < 98% over 4h
+- Slippage > 3% on any order
+
+Límites por usuario/proveedor:
+- Por usuario: según tier KYC
+- Por proveedor: negotiated monthly quotas
+- Bloqueos temporales: risk-based + velocity checks
+- Escalamiento automático: admin approval workflows
+
+8) RED(ES) Y ACTIVO(S) DIGITAL(ES)
+==================================
+
+Implementación actual:
+- Red: Stellar Testnet → Mainnet
+- Activo: USDC (Implementado en smart contracts)
+- Custodia: No-custodial (claves en secureStorage.ts)
+
+Smart Contracts Soroban implementados:
+pub fn transfer(from: Address, to: Address, asset: AssetType, amount: u32) -> Result<(), Error>
+pub fn get_user_balance(user: Address, asset_type: AssetType) -> Result<u32, Error>
+pub fn register_balance(user: Address) -> Result<(), Error>
+
+Flujos cuenta/activación:
+1. Crear wallet Stellar (keypair generation)
+2. Fund account (0.5 XLM minimum)
+3. Establish trustline USDC
+4. Register in Gyro smart contract
+5. Enable deposit/withdraw operations
+
+Residencia claves:
+No-custodio:
+- Private keys: Capacitor SecureStorage (device keychain)
+- Backup: Encrypted seed phrase (user responsibility)
+- Server: NEVER sees private keys
+
+Custodio (futuro):
+- Hot wallet: HSM-backed multi-sig
+- Cold storage: Offline signing ceremony
+- Governance: 3/5 multi-sig council
+
+Lógica on-chain futura:
+interface VaultContract {
+  deposit(user: Address, amount: u32) -> Result<(), Error>;
+  withdraw(user: Address, amount: u32) -> Result<(), Error>;
+  get_yield_rate() -> Result<u32, Error>; // Basis points
+  pause_vault() -> Result<(), Error>; // Admin only
+}
+
+Eventos smart contract:
+- Transfer(from, to, asset, amount)
+- Deposit(user, amount, vault_id)
+- Withdraw(user, amount, vault_id)
+- YieldDistribution(vault_id, total_yield, timestamp)
+
+Políticas pause/upgrade:
+- Emergency pause: 1/3 admin keys
+- Contract upgrade: 3/5 council consensus
+- Timelock: 48h delay for non-emergency changes
+
+Manejo comisiones red:
+- Fee estimation: Dynamic based on network congestion
+- User disclosure: Upfront fee display
+- Accounting: Separate ledger entry per network fee
+- Retry logic: Escalating fee strategy on congestion
+
+9) LEDGER, CONTABILIDAD Y CONCILIACIONES
+=========================================
+
+Plan de cuentas implementado:
+enum TransactionType {
+  DEPOSIT = "deposito",    // Asset: +USDC, Liability: +BOB_PENDING
+  WITHDRAWAL = "retiro",   // Asset: -USDC, Liability: -BOB_PENDING  
+  TRANSFER = "transferencia", // Internal transfer
+  FEE = "comision"         // Revenue: +FEE
+}
+
+Ejemplos de asientos:
+Depósito 1000 BOB → 145 USDC:
+Dr. BOB_RECEIVABLE 1000
+Cr. BOB_DEPOSITS 1000
+Dr. USDC_INVENTORY 145
+Cr. USER_USDC_BALANCE 145
+
+Retiro 100 USDC → 690 BOB:
+Dr. USER_USDC_BALANCE 100
+Cr. USDC_INVENTORY 100
+Dr. BOB_WITHDRAWALS 690
+Cr. BOB_PAYABLE 690
+
+Comisión 0.5%:
+Dr. USER_USDC_BALANCE 0.5
+Cr. FEE_REVENUE 0.5
+
+Inmutabilidad:
+- Hash encadenado SHA-256 por entrada
+- Journal append-only con timestamps
+- Cryptographic proof per block (daily)
+- Backup redundante en múltiples AZs
+
+Trazabilidad:
+- UUID único por transacción business
+- Link a Stellar transaction hash
+- User PII separado (GDPR compliance)
+- Audit trail completo por operación
+
+Cierre diario:
+1. Cut-off 23:59:59 UTC-4 (BOT)
+2. Balance reconciliation automática
+3. Hash-chain closure con merkle root
+4. Generate daily reports (P&L, Balance Sheet)
+5. Distribute to stakeholders
+
+Conciliaciones cruzadas:
+PSP:
+- Webhook confirmations vs internal ledger
+- Daily settlement file reconciliation
+- Dispute tracking + resolution
+
+Stellar Network:
+- On-chain transactions vs smart contract state
+- Account balance verification
+- Failed transaction analysis
+
+FX Providers:
+- Rate snapshots vs executed orders
+- Slippage analysis
+- Provider performance metrics
+
+Reportes generados:
+- Daily P&L by business line
+- Balance sheet + position summary
+- Transaction volume + fees earned
+- Reconciliation exceptions report
+- Regulatory compliance pack
+
+Tratamiento desbalances:
+Tolerancias:
+- BOB: ±1 peso por rounding
+- USDC: ±0.000001 por precision
+- Timing: 4h window para settlement
+
+Tiempos maduración:
+- BOB deposits: T+0 (instant)
+- BOB withdrawals: T+1 (next business day)
+- USDC operations: T+0 (blockchain instant)
+
+Ajustes autorizados:
+- <100 BOB: Automated correction
+- 100-1000 BOB: Operations manager approval
+- >1000 BOB: CFO + auditor sign-off
+
+Flujo RACI:
+Responsible: Operations team
+Accountable: CFO
+Consulted: Auditor, Compliance
+Informed: Board, Regulators
+
+10) DATOS Y ALMACENAMIENTO
+==========================
+
+Stack actual:
+- Aplicación: Capacitor SecureStorage (móvil) + localStorage (web)
+- Smart Contracts: Soroban persistent storage
+- Caché: React state + hooks
+
+Esquema recomendado PostgreSQL:
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  stellar_address VARCHAR(56) UNIQUE,
+  kyc_status VARCHAR(20),
+  tier INTEGER DEFAULT 1,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE transactions (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  type VARCHAR(20),
+  amount DECIMAL(18,7),
+  asset VARCHAR(10),
+  status VARCHAR(20),
+  stellar_tx_hash VARCHAR(64),
+  psp_reference VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW(),
+  confirmed_at TIMESTAMP,
+  INDEX idx_user_created (user_id, created_at),
+  INDEX idx_status_created (status, created_at)
+);
+
+CREATE TABLE kyc_sessions (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  provider VARCHAR(50),
+  status VARCHAR(20),
+  session_data JSONB,
+  evidence_hash VARCHAR(64),
+  completed_at TIMESTAMP,
+  expires_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE exchange_rates (
+  id UUID PRIMARY KEY,
+  from_asset VARCHAR(10),
+  to_asset VARCHAR(10),
+  rate DECIMAL(18,8),
+  provider VARCHAR(50),
+  valid_from TIMESTAMP,
+  valid_until TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Estrategia migraciones:
+- Expand/Contract pattern para zero-downtime
+- Schema versioning con semantic versions
+- Automated rollback en failure detection
+- Feature flags para nuevo schema adoption
+
+Datos en caché:
+- Exchange rates: TTL 30s
+- User balances: TTL 60s, invalidate on transaction
+- KYC status: TTL 5min, invalidate on status change
+- Provider health: TTL 10s
+
+Cifrado en reposo:
+- PII: AES-256 encryption per-column
+- Secrets: AWS KMS/Azure Key Vault
+- Backups: Encrypted with separate keys
+- Audit logs: Tamper-evident cryptographic signatures
+
+Política acceso:
+- Principio mínimo privilegio
+- Role-based access (RBAC)
+- Attribute-based control (ABAC) para sensitive ops
+- Regular access reviews (quarterly)
+- Automated deprovisioning on role change
+
+11) SEGURIDAD
+=============
+
+Matriz STRIDE implementada:
+
+Amenaza | Control Implementado
+---------|---------------------
+Spoofing | Corbado Auth + device binding
+Tampering | Smart contract immutability
+Repudiation | Stellar ledger + tx signatures
+Information Disclosure | SecureStorage encryption
+Denial of Service | Rate limiting (recomendado)
+Elevation of Privilege | Tier-based limits
+
+Gestión secretos:
+- Origen entropía: Hardware RNG + /dev/urandom
+- Rotación: Quarterly for API keys, Annual for signing keys
+- Bóveda: HashiCorp Vault / AWS Secrets Manager
+- Auditoría: All secret access logged + monitored
+
+Controles perimetrales:
+WAF Rules:
+- SQL injection protection
+- XSS filtering
+- Rate limiting per IP/User
+- Geo-blocking suspicious regions
+
+Política cabeceras web:
+- CSP: strict-dynamic, no unsafe-eval
+- HSTS: max-age=31536000; includeSubDomains
+- X-Frame-Options: DENY
+- X-Content-Type-Options: nosniff
+
+Anti-clickjacking:
+- Frame busting JavaScript
+- CSP frame-ancestors 'none'
+- SameSite cookies strict
+
+Congelamiento lógico:
+Triggers automáticos:
+- Velocity checks (unusual transaction patterns)
+- Geographic anomalies
+- Multiple failed auth attempts
+- Suspicious KYC red flags
+
+Desbloqueo procedimiento:
+1. Customer service review
+2. Additional identity verification
+3. Manager approval for >$1000 accounts
+4. 48h cooling period for high-risk cases
+
+Registro inmutable seguridad:
+- Syslog forwarding to SIEM
+- Cryptographic signatures per log entry
+- Write-once storage (WORM compliance)
+- 7-year retention minimum
+- Real-time correlation + alerting
+
+12) BACKOFFICE (OPERACIONES, SOPORTE, COMPLIANCE)
+=================================================
+
+Vistas mínimas requeridas:
+const BackofficeViews = {
+  users: "KYC status, tiers, limits, transaction history",
+  transactions: "Real-time monitoring, search/filter, bulk actions",
+  alerts: "Suspicious activity, limits exceeded, failed operations", 
+  reconciliation: "Daily settlement reports, exception handling",
+  compliance: "AML/SAR reports, audit trails, regulatory submissions",
+  operations: "Provider health, system metrics, manual interventions"
+}
+
+Wireframes funcionales:
+1. Dashboard: KPI widgets, alert summary, recent transactions
+2. User Management: Search, KYC workflow, limit adjustments
+3. Transaction Monitor: Real-time stream, investigation tools
+4. Reports: Scheduled generation, compliance templates
+5. System Admin: Configuration, provider management, maintenance
+
+Modelo permisos RBAC:
+Roles definidos:
+- customer_support: Read users, read transactions
+- operations_analyst: Read all, write reconciliations
+- compliance_officer: Read all, write reports, freeze accounts
+- operations_manager: All operations_analyst + approve adjustments
+- admin: Full system access + user management
+
+Operaciones "4-ojos":
+- Account freeze/unfreeze >$1000 balance
+- Manual transaction adjustments >$100
+- KYC status overrides
+- System configuration changes
+- Provider API key rotation
+
+Auditoría implementación:
+- All admin actions logged with user ID + timestamp
+- Session recording for sensitive operations
+- Approval workflows with digital signatures
+- Regular access reviews + certification
+
+Reportes operativos:
+Diarios:
+- Transaction volume + revenue
+- Failed operations summary
+- Reconciliation exceptions
+- Provider performance metrics
+
+Semanales:
+- KYC approval rates + timing
+- Customer support metrics
+- System performance trends
+- Security incident summary
+
+Mensuales:
+- P&L by business line
+- Compliance metrics + violations
+- Operational risk assessment
+- Capacity planning recommendations
+
+Regulatorios:
+- SAR (Suspicious Activity Reports): As needed
+- CTR (Currency Transaction Reports): >$10k equivalent
+- FBAR equivalents: Annual
+- AML compliance certification: Annual
+
+Formatos:
+- CSV/Excel for data analysis
+- PDF for formal reports
+- JSON for system integration
+- Encrypted ZIP for sensitive data transfer
+
+13) OBSERVABILIDAD, SRE Y FIABILIDAD
+====================================
+
+Trazas implementar:
+- Request correlation IDs (UUID per request)
+- Distributed tracing con Jaeger/Zipkin
+- Span context propagation across services
+- Business transaction tracing (deposit flow end-to-end)
+
+Métricas recoger:
+Técnicas:
+- Response time (p50, p95, p99)
+- Error rates by endpoint
+- Infrastructure utilization
+- Database connection pooling
+
+Negocio:
+- Daily transaction volume
+- Conversion rates by tier
+- Failed transaction reasons
+- Customer acquisition cost
+
+Logs estructurados:
+{
+  "timestamp": "2025-08-26T10:30:00Z",
+  "level": "INFO",
+  "service": "wallet-service",
+  "correlation_id": "req_12345",
+  "user_id": "user_67890",
+  "transaction_id": "tx_abcdef",
+  "event": "deposit_processed",
+  "amount": 145.50,
+  "asset": "USDC",
+  "provider": "PSP_BOLIVIA_1"
+}
+
+SLOs por dominio:
+API Internas:
+- Latency: p95 < 500ms, p99 < 2s
+- Availability: 99.9%
+- Error rate: <0.1%
+
+Deposit Flow (BOB → USDC):
+- E2E latency: p95 < 5min, p99 < 15min
+- Success rate: >99%
+- Time to confirmation: p95 < 2min
+
+Withdrawal Flow (USDC → BOB):
+- E2E latency: p95 < 30min, p99 < 2h
+- Success rate: >98%
+- Settlement time: p95 < 24h
+
+Alertas derivadas:
+- Latency p95 > 1s for 5min
+- Error rate > 1% for 2min
+- Transaction success < 95% for 10min
+- Provider downtime detection
+- Unusual volume patterns (+/-3 sigma)
+
+Runbooks incidentes típicos:
+
+"Colas atascadas":
+1. Check queue depth metrics
+2. Verify consumer health
+3. Restart consumers if needed
+4. Scale horizontally if volume surge
+5. Alert business stakeholders
+
+"Divergencias contables":
+1. Stop new transactions (circuit breaker)
+2. Run reconciliation report
+3. Identify discrepancy source
+4. Manual adjustment if <$100
+5. Escalate to CFO if >$100
+
+"PSP indisponible":
+1. Failover to secondary PSP
+2. Queue pending transactions
+3. Monitor recovery status
+4. Process queued transactions on restore
+5. Post-incident analysis
+
+Plan backups:
+- Database: Continuous WAL shipping + daily snapshots
+- Application state: Real-time replication
+- Configuration: Git-backed infrastructure as code
+- Keys/secrets: Encrypted backup in separate region
+
+Restauración verificada:
+- Monthly backup restore tests
+- Recovery time verification
+- Data integrity validation
+- Automated restore procedures
+
+RPO/RTO targets:
+- RPO: 1 minute (maximum data loss)
+- RTO: 15 minutes (maximum downtime)
+- Validation: Quarterly disaster recovery drills
+
+14) INFRAESTRUCTURA Y ENTREGA
+=============================
+
+IaC con Terraform:
+modules/
+├── network/           # VPC, subnets, security groups
+│   ├── main.tf
+│   ├── variables.tf
+│   └── outputs.tf
+├── compute/           # ECS/K8s for containers
+├── storage/           # RDS, Redis, S3
+├── monitoring/        # CloudWatch, alerts
+├── security/          # IAM, secrets, WAF
+└── environments/
+    ├── dev/
+    ├── staging/
+    └── prod/
+
+Aislamiento redes:
+- Private subnets para aplicaciones
+- Public subnets para load balancers únicamente
+- Bastion hosts para acceso administrativo
+- VPN connection para backoffice
+- Security groups restrictivos por servicio
+
+CI/CD Pipeline:
+stages:
+  - lint: "ESLint, Prettier, TypeScript compilation"
+  - test: "Unit tests 80%+ coverage, integration tests"
+  - security: "SAST (SonarQube), dependency scanning (Snyk)"
+  - build: "Docker images, static asset optimization"
+  - deploy: "Blue-green deployment con health checks"
+
+Criterios go/no-go:
+Dev → Staging:
+- All tests passing
+- Security scan clean
+- Code review approved
+- Feature flag ready
+
+Staging → Prod:
+- Load testing passed
+- Security pentest cleared
+- Business stakeholder approval
+- Rollback plan documented
+
+Escalado automático:
+- CPU >70% for 5min → scale up
+- Memory >80% for 5min → scale up
+- Queue depth >100 → scale consumers
+- Scale down during low usage (2am-6am)
+
+Límites costo:
+- Monthly budget alerts at 80%, 90%, 100%
+- Auto-scaling caps to prevent runaway costs
+- Reserved instances for predictable workloads
+- Spot instances for batch processing
+
+15) CALIDAD, PRUEBAS Y HARDENING
+=================================
+
+Cobertura mínima:
+Unitarias:
+- Services críticos: 90%+ (payment, wallet, kyc)
+- Utilities: 80%+
+- UI components: 70%+
+
+Integración:
+- External APIs: 100% happy + error paths
+- Database operations: 100%
+- Inter-service communication: 100%
+
+E2E:
+- Critical flows: Deposit, withdraw, KYC
+- Error scenarios: Network failures, timeout
+- Performance: Load under expected traffic
+
+Contract Tests con Pact:
+describe('KYC Provider Contract', () => {
+  it('should return user verification status', async () => {
+    const provider = new KYCProvider();
+    const result = await provider.getVerificationStatus('user123');
+    expect(result).toMatchContract(kycStatusSchema);
+  });
+  
+  it('should handle verification timeout', async () => {
+    const provider = new KYCProvider();
+    await expect(provider.getVerificationStatus('timeout-user'))
+      .rejects.toThrow('VERIFICATION_TIMEOUT');
+  });
+});
+
+Sandbox reproducible:
+- Docker Compose para dependencias externas
+- Mock services para PSP/KYC providers
+- Stellar testnet para blockchain ops
+- Data seeding scripts
+- Environment reset automation
+
+Pruebas carga:
+Escenarios:
+1. Tormenta webhooks PSP (1000 req/s for 5min)
+2. Ráfagas órdenes conversión (100 concurrent)
+3. Degradación provider (failover testing)
+4. Normal traffic simulation (baseline)
+
+Objetivos rendimiento:
+- p95 < 1s under normal load
+- p99 < 5s under peak load
+- Success rate >99% under stress
+- No memory leaks over 24h test
+
+Resilience testing:
+- Chaos engineering (random service failures)
+- Network partitions simulation
+- Database failover testing
+- Provider timeout simulation
+
+Pentesting:
+Frecuencia: Quarterly for production, annually external
+Scope: Full application + infrastructure
+Metodología: OWASP Top 10 + custom business logic
+Deliverables: Executive summary + technical details
+
+Tratamiento hallazgos:
+- Critical: Fix within 24h
+- High: Fix within 1 week
+- Medium: Fix within 1 month
+- Low: Fix in next release cycle
+- Verification: Re-test all fixes
+
+16) POLÍTICAS OPERATIVAS Y LÍMITES
+===================================
+
+Tabla límites inicial:
+
+Tier | Diario BOB | Mensual BOB | 2FA Umbral | KYC Requerido | Single Tx Max
+-----|------------|-------------|-------------|---------------|---------------
+1    | 3,500 BOB  | 14,000 BOB  | 700 BOB     | Básico        | 1,000 BOB
+2    | 14,000 BOB | 70,000 BOB  | 3,500 BOB   | Completo      | 5,000 BOB  
+3    | 70,000 BOB | 350,000 BOB | 7,000 BOB   | Avanzado      | 25,000 BOB
+
+Umbrales autenticación reforzada:
+- SMS OTP: Transactions >500 BOB (Tier 1)
+- App TOTP: Transactions >2,000 BOB (Tier 2)
+- Biometric: Transactions >10,000 BOB (Tier 3)
+- Manual review: Single tx >25,000 BOB (all tiers)
+
+Política slippage:
+Montos pequeños (<1000 BOB):
+- Slippage máximo: 2%
+- Auto-ejecución si dentro tolerancia
+- Cancelación si excede slippage
+
+Montos grandes (>5000 BOB):
+- Slippage máximo: 1%
+- Quote válido por 60 segundos
+- Re-quote requerido si expira
+
+Comisiones:
+Estructura actual:
+- Depósito BOB: 0% (PSP absorbe costo)
+- Conversión BOB→USDC: 0.5%
+- Retiro USDC: 0.3% + network fee
+- Transferencia interna: 0.1%
+
+Fórmula cálculo:
+final_amount = (input_amount - fixed_fee) * (1 - percentage_fee)
+network_fee = estimated_gas * gas_price * safety_margin(1.2)
+
+Ejemplos asientos:
+Depósito 1000 BOB:
+Dr. BOB_RECEIVABLE 1000.00
+Cr. BOB_LIABILITY 1000.00
+
+Conversión a 145 USDC (rate 0.145, fee 0.5%):
+Dr. BOB_LIABILITY 1000.00
+Cr. BOB_REVENUE 5.00 (fee)
+Cr. FX_LIABILITY 995.00
+Dr. USDC_INVENTORY 144.275
+Cr. USER_USDC_BALANCE 144.275
+
+Operaciones vencidas:
+- Quote expiration: Automática después TTL
+- Rollback contable: Reversa asientos parciales
+- Notificación usuario: Push notification + email
+- Reintento automático: Max 3 attempts con backoff
+
+17) RIESGOS Y CONTINGENCIAS
+===========================
+
+Plan contingencia PSP:
+const failoverStrategy = {
+  primary: "PSP_BOLIVIA_1 (Tigo Money)",
+  secondary: "PSP_BOLIVIA_2 (Simple)",
+  tertiary: "Manual processing queue", 
+  sla: "Failover dentro 5 minutos",
+  notification: "Alertas tiempo real ops team",
+  testing: "Monthly failover drills"
+}
+
+Modos degradados:
+1. PSP primario down: Auto-failover secundario
+2. Ambos PSPs down: Queue + manual processing
+3. Red Stellar congestionada: Escalating fee strategy
+4. FX provider down: Last-known rate + penalty spread
+
+Colas espera:
+- Max queue size: 10,000 transactions
+- Processing order: FIFO con priority flags
+- SLA: Process queued items within 4h of restore
+- Monitoring: Queue depth + age alerts
+
+Comunicación usuario:
+- Status page: Real-time system health
+- Push notifications: Service disruptions
+- Email updates: Extended outages
+- In-app messaging: Degraded functionality
+
+Procedimiento fraude:
+Detección:
+- Velocity rules (unusual transaction patterns)
+- Geolocation anomalies
+- Device fingerprint changes
+- Suspicious KYC scores
+
+Respuesta:
+1. Automatic account freeze
+2. Investigation team notification
+3. Evidence preservation (72h)
+4. Customer communication (24h)
+5. Resolution + unfreeze (5 days max)
+
+Evidencias requeridas:
+- Transaction logs + metadata
+- Device fingerprints + IP logs  
+- KYC documentation + scores
+- Communication records
+- Third-party fraud signals
+
+Ventanas temporales:
+- Detection: Real-time to 24h
+- Investigation: 5 business days
+- Chargeback response: 30 days (PSP dependent)
+- Evidence retention: 7 years
+- Customer appeal: 90 days
+
+18) DOCUMENTACIÓN Y GOBERNANZA
+==============================
+
+Contratos API sincronizados:
+// OpenAPI auto-generated TypeScript
+interface DepositRequest {
+  /** Amount in bolivianos */
+  amount: number;
+  /** User stellar address */
+  userAddress: string;
+  /** Unique reference for idempotency */
+  reference: string;
+  /** PSP provider preference */
+  provider?: 'tigo' | 'simple' | 'auto';
+}
+
+interface DepositResponse {
+  /** Transaction ID for tracking */
+  transactionId: string;
+  /** QR code for payment */
+  qrCode: string;
+  /** Payment deadline */
+  expiresAt: string;
+  /** Expected USDC amount after conversion */
+  expectedUsdc: number;
+}
+
+Generación automática:
+- OpenAPI spec from TypeScript interfaces
+- SDK generation para mobile/web
+- Postman collections para testing
+- Documentation site (Swagger UI)
+
+Validación CI:
+- Schema breaking changes detection
+- Backward compatibility verification
+- Contract testing against mocks
+- Documentation completeness check
+
+Catálogo eventos:
+interface PaymentConfirmed {
+  eventType: 'payment.confirmed';
+  transactionId: string;
+  userId: string;
+  amount: number;
+  currency: 'BOB' | 'USDC';
+  confirmedAt: string;
+  metadata: {
+    psp: string;
+    reference: string;
+  };
+}
+
+Normas estilo código:
+- ESLint: Airbnb config + custom rules
+- Prettier: 2 spaces, single quotes, trailing commas
+- TypeScript: Strict mode, no any types
+- Naming: camelCase variables, PascalCase types
+- File structure: Feature-based organization
+
+Revisiones código:
+- Mandatory para main branch
+- 2 approvals para core modules
+- Automated checks: lint, test, security
+- Review checklist: security, performance, maintainability
+
+Estrategia ramas:
+- main: Production-ready code
+- develop: Integration branch
+- feature/*: Individual features
+- hotfix/*: Emergency fixes
+- release/*: Release preparation
+
+Convenciones commits:
+feat: add new payment provider integration
+fix: resolve race condition in balance updates
+docs: update API documentation for deposits
+test: add integration tests for PSP failover
+refactor: optimize database query performance
+
+Versionado esquemas:
+Database:
+- Semantic versioning (major.minor.patch)
+- Migration scripts con rollback
+- Backward compatibility guarantee
+- Schema registry para validation
+
+APIs:
+- URL versioning (/api/v1/, /api/v2/)
+- Header versioning para minor changes
+- Deprecation notices (6 months minimum)
+- Support matrix documentation
+
+19) ROADMAP Y CRITERIOS DE SALIDA DE FASES
+===========================================
+
+Hitos técnicos MVP (COMPLETADO):
+✅ Smart contracts deployed Stellar testnet
+✅ Mobile app (Capacitor) + Web app ready
+✅ Basic KYC flow (Corbado integration)
+✅ BOB → USDC conversion logic
+✅ Secure storage implementation
+✅ Transaction history + UI components
+
+Criterios cumplimiento MVP:
+✅ Unit test coverage >70%
+✅ Basic security controls implemented
+✅ Core user flows functional
+✅ Smart contract audit (testnet)
+✅ Mobile app stores ready
+
+Beta Phase (EN PROGRESO):
+🔄 PSP boliviano integration (Tigo Money/Simple)
+🔄 Multi-provider on/off-ramp architecture
+🔄 Advanced compliance + reporting
+🔄 Full observability + monitoring
+🔄 Load testing + performance optimization
+
+Criterios cumplimiento Beta:
+- Real money transactions (limited users)
+- PSP integration live + tested
+- Compliance framework operational
+- Monitoring + alerting comprehensive
+- Load testing 10x expected traffic
+- Security pentest completed
+- Disaster recovery tested
+
+Production Phase (PENDIENTE):
+⏳ Stellar Mainnet deployment
+⏳ Full regulatory approval Bolivia
+⏳ Complete audit + security certification
+⏳ Scale testing (100x traffic)
+⏳ 24/7 operations + support
+⏳ Business continuity plan
+
+Criterios cumplimiento Production:
+- Regulatory approval documentation
+- Third-party security audit passed
+- 99.9% uptime demonstrated (30 days)
+- Customer support processes operational
+- Financial reporting systems complete
+- Insurance + legal framework complete
+
+Indicadores técnicos gate criteria:
+
+MVP → Beta:
+- Error rate <1% for core flows
+- Latency p95 <2s for all APIs
+- Security vulnerabilities: 0 critical, <3 high
+- Test coverage >80%
+- Documentation complete
+
+Beta → Production:
+- Error rate <0.1% for 30 days
+- Latency p95 <500ms sustained
+- Security: External audit clean
+- Uptime >99.5% for 90 days
+- Load test passed 100x baseline
+- Compliance framework certified
+
+Definition of Done estándar:
+- Feature implemented + tested
+- Code reviewed + approved
+- Documentation updated
+- Security review completed
+- Performance impact assessed
+- Monitoring + alerting configured
+- Rollback plan documented
+- Stakeholder sign-off received
+
+20) ARTEFACTOS TÉCNICOS DISPONIBLES
+===================================
+
+Contratos API actuales:
+// depositServiceSmart.ts - Principal API
+interface DepositAPI {
+  processDeposit(request: DepositRequest): Promise<DepositResponse>;
+  getUserInfo(address: string): Promise<UserInfo>;
+  getTransactionHistory(address: string): Promise<Transaction[]>;
+  getBalance(address: string): Promise<BalanceInfo>;
+}
+
+interface WithdrawAPI {
+  createWithdrawal(request: WithdrawRequest): Promise<WithdrawResponse>;
+  confirmWithdrawal(id: string, signature: string): Promise<ConfirmResponse>;
+  getWithdrawalStatus(id: string): Promise<WithdrawStatus>;
+}
+
+Esquemas datos actuales:
+// secureStorage.ts
+interface UserData {
+  stellarPublicKey: string;
+  stellarSecretKey?: string; 
+  kycCompleted: boolean;
+  userAddress: string;
+  tier: number;
+  createdAt: string;
+  lastActivity: string;
+}
+
+interface TransactionRecord {
+  id: string;
+  type: 'deposit' | 'withdraw' | 'transfer';
+  amount: number;
+  asset: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  stellarTxHash?: string;
+  pspReference?: string;
+  createdAt: string;
+  confirmedAt?: string;
+}
+
+DDL Smart Contracts Soroban:
+// Gyro Contract Storage
+pub struct Balance(pub Address, pub AssetType);
+pub struct UserHistory(pub Address);
+pub struct AdminConfig {
+    pub exchange_rate: u32,
+    pub fee_percentage: u32,
+    pub admin_address: Address,
+}
+
+impl GyroContract {
+    pub fn transfer(
+        &self, 
+        from: Address, 
+        to: Address, 
+        asset: AssetType, 
+        amount: u32
+    ) -> Result<(), Error>;
+    
+    pub fn get_user_balance(
+        &self, 
+        user: Address, 
+        asset_type: AssetType
+    ) -> Result<u32, Error>;
+    
+    pub fn register_balance(
+        &self, 
+        user: Address
+    ) -> Result<(), Error>;
+    
+    pub fn update_exchange_rate(
+        &self,
+        admin: Address,
+        new_rate: u32
+    ) -> Result<(), Error>;
+}
+
+Componentes UI implementados:
+- SplashScreen.tsx: Pantalla inicial + branding
+- Dashboard.tsx: Balance + acciones principales  
+- TransactionHistoryPage.tsx: Historial completo
+- DepositPage.tsx: Flujo depósito bolivianos
+- DepositQRPage.tsx: Generación QR + confirmación
+- WithdrawPage.tsx: Flujo retiro a cuentas
+- KYCModal.tsx: Proceso verificación identidad
+- MorePage.tsx: Configuración + soporte
+
+Hooks negocio:
+- useContractBalance.ts: Balance tiempo real
+- useTransactionHistory.ts: Historial transacciones
+- useExchangeRate.ts: Tasas cambio actualizadas
+- useDeposit.ts: Lógica depósitos
+- useDepositSmart.ts: Smart contract integration
+
+Servicios core:
+- depositServiceSmart.ts: Operaciones depósito
+- secureStorage.ts: Almacenamiento seguro móvil
+- adminConfig.ts: Configuración sistema
+
+Estado actual sistema:
+✅ Frontend completo + funcional
+✅ Smart contracts deployed testnet
+✅ Almacenamiento seguro móvil implementado
+✅ Flujos KYC + autenticación operativos
+✅ Conversión BOB→USDC implementada
+🔄 Integración PSP pendiente
+🔄 Monitoreo + observabilidad básico
+⏳ Despliegue mainnet pendiente
+
+El sistema está funcionalmente completo para MVP, con arquitectura preparada para escalabilidad. Necesita principalmente integración PSP boliviano y mejoras de observabilidad para producción.
