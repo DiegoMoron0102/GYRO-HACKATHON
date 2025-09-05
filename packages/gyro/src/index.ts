@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CAOSVKNJ54XTRNLPBS5HBSY2YVIAZYPM2CBQOMLVXOSL7GA6DFRT3AJY",
+    contractId: "CA7SDBMGGKHQFZRCENRHLLDHXIQXRL3I66T3ZKU4HBPN4ECU4TMXA4A2",
   }
 } as const
 
@@ -85,6 +85,26 @@ export interface Client {
      */
     simulate?: boolean;
   }) => Promise<AssembledTransaction<null>>
+
+  /**
+   * Construct and simulate a admin_approve_usdc transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  admin_approve_usdc: ({admin, amount}: {admin: string, amount: u32}, options?: {
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
+
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
+
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a transfer transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -190,7 +210,7 @@ export interface Client {
 export class Client extends ContractClient {
   static async deploy<T = Client>(
         /** Constructor/Initialization Args for the contract's `__constructor` method */
-        {owner}: {owner: string},
+        {owner, user_contract_id, usdc_token}: {owner: string, user_contract_id: string, usdc_token: string},
     /** Options for initializing a Client as well as for calling a method, with extras specific to deploying. */
     options: MethodOptions &
       Omit<ContractClientOptions, "contractId"> & {
@@ -202,12 +222,13 @@ export class Client extends ContractClient {
         format?: "hex" | "base64";
       }
   ): Promise<AssembledTransaction<T>> {
-    return ContractClient.deploy({owner}, options)
+    return ContractClient.deploy({owner, user_contract_id, usdc_token}, options)
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAEAAAAAAAAABW93bmVyAAAAAAAAEwAAAAA=",
+      new ContractSpec([ "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAMAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAQdXNlcl9jb250cmFjdF9pZAAAABMAAAAAAAAACnVzZGNfdG9rZW4AAAAAABMAAAAA",
         "AAAAAAAAAAAAAAAQcmVnaXN0ZXJfYmFsYW5jZQAAAAEAAAAAAAAABHVzZXIAAAATAAAAAA==",
+        "AAAAAAAAAAAAAAASYWRtaW5fYXBwcm92ZV91c2RjAAAAAAACAAAAAAAAAAVhZG1pbgAAAAAAABMAAAAAAAAABmFtb3VudAAAAAAABAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAACVVzZXJFcnJvcgAAAA==",
         "AAAAAAAAAAAAAAAIdHJhbnNmZXIAAAAGAAAAAAAAAARmcm9tAAAAEwAAAAAAAAACdG8AAAAAABMAAAAAAAAACmFzc2V0X3R5cGUAAAAAB9AAAAAJQXNzZXRUeXBlAAAAAAAAAAAAAAZhbW91bnQAAAAAAAQAAAAAAAAABGRhdGUAAAAQAAAAAAAAAAV0eF9pZAAAAAAAABAAAAABAAAD6QAAA+0AAAAAAAAH0AAAABBUcmFuc2FjdGlvbkVycm9y",
         "AAAAAAAAAAAAAAAId2l0aGRyYXcAAAAFAAAAAAAAAAR1c2VyAAAAEwAAAAAAAAAKYXNzZXRfdHlwZQAAAAAH0AAAAAlBc3NldFR5cGUAAAAAAAAAAAAABmFtb3VudAAAAAAABAAAAAAAAAAEZGF0ZQAAABAAAAAAAAAABXR4X2lkAAAAAAAAEAAAAAEAAAPpAAAD7QAAAAAAAAfQAAAAEFRyYW5zYWN0aW9uRXJyb3I=",
         "AAAAAAAAAAAAAAAQZ2V0X3VzZXJfYmFsYW5jZQAAAAIAAAAAAAAABHVzZXIAAAATAAAAAAAAAAphc3NldF90eXBlAAAAAAfQAAAACUFzc2V0VHlwZQAAAAAAAAEAAAPpAAAABAAAB9AAAAAQVHJhbnNhY3Rpb25FcnJvcg==",
@@ -223,6 +244,7 @@ export class Client extends ContractClient {
   }
   public readonly fromJSON = {
     register_balance: this.txFromJSON<null>,
+        admin_approve_usdc: this.txFromJSON<Result<void>>,
         transfer: this.txFromJSON<Result<void>>,
         withdraw: this.txFromJSON<Result<void>>,
         get_user_balance: this.txFromJSON<Result<u32>>,

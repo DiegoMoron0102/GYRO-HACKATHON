@@ -3,22 +3,58 @@ use crate::error::TransactionError;
 use crate::storage_types::AssetType;
 use crate::storage_types::DataKey::{Balance, Transactions};
 use crate::storage_types::{Transaction, TransactionType};
-use soroban_sdk::{contract, contractimpl, symbol_short, vec, Address, Env, String, Symbol, Vec};
+use soroban_sdk::{contract, contractimpl, symbol_short, token, vec, Address, Env, String, Symbol, Vec};
+use crate::user_contract::UserError;
 
 const TRANSFER: Symbol = symbol_short!("TRANSFER");
 const WITHDRAW: Symbol = symbol_short!("WITHDRAW");
+const USER_CONTRACT: Symbol = symbol_short!("USER_C");
+const USDC_ASSET: Symbol = symbol_short!("USDC_ID");
+
+mod user_contract {
+    soroban_sdk::contractimport!(
+        file = "../../../target/wasm32v1-none/release/user.wasm",
+    );
+}
 
 #[contract]
 pub struct Gyro;
 
 #[contractimpl]
 impl Gyro {
-    pub fn __constructor(env: Env,  owner: Address) {
+    pub fn __constructor(env: Env, owner: Address, user_contract_id: Address, usdc_token: Address) {
+        env.storage().instance().set(&USER_CONTRACT, &user_contract_id);
+        env.storage().instance().set(&USDC_ASSET, &usdc_token);
         env.storage().instance().set(&"owner", &owner);
         env.storage().persistent().set(&Balance(env.current_contract_address(), AssetType::USDC), &1000000u32);
+        env.storage().persistent().set(&Balance(owner, AssetType::USDC), &1000000u32);
     }
     pub fn register_balance(env: Env, user: Address) {
         env.storage().persistent().set(&Balance(user, AssetType::USDC), &0u32);
+    }
+
+    pub fn admin_approve_usdc(env: Env, admin: Address, amount: u32) -> Result<(), UserError> {
+        admin.require_auth();
+        let user_contract_id: Address = env.storage().instance().get(&USER_CONTRACT).unwrap();
+        let client = user_contract::Client::new(&env, &user_contract_id);
+        if !client.is_admin(&admin) {
+            return Err(UserError::NotAuthorized);
+        };
+
+        let usdc_token: Address = env.storage().instance().get(&USDC_ASSET).unwrap();
+        let Ok(mut admin_balance) = Self::get_user_balance(env.clone(), admin.clone(), AssetType::USDC) else {
+            return Err(UserError::NotRegistered)
+        };
+
+        admin_balance += amount;
+        env.storage().persistent().set(&Balance(admin.clone(), AssetType::USDC), &admin_balance);
+        token::Client::new(&env, &usdc_token).approve(
+            &admin,
+            &env.current_contract_address(),
+            &(amount as i128),
+            &((env.ledger().timestamp() + 30 * 24 * 60 * 60) as u32) // 30-day expiration
+        );
+        Ok(())
     }
 
     pub fn transfer(
@@ -71,6 +107,18 @@ impl Gyro {
         if amount <= 0 || user_balance < amount {
             return Err(TransactionError::InsufficientBalance);
         }
+        match asset_type {
+            AssetType::USDC => {
+                let usdc_asset: Address = env.storage().instance().get(&USDC_ASSET).unwrap();
+                let token_client = token::Client::new(&env, &usdc_asset);
+
+                let Some(admin) = Self::find_available_admin(&env, &token_client, amount) else {
+                    return Err(TransactionError::InsufficientLiquidityFund);
+                };
+                token_client.transfer(&admin, &user, &(amount as i128));
+            },
+            AssetType::Bs => {},
+        }
         user_balance -= amount;
         env.storage().persistent().set(&Balance(user.clone(), asset_type.clone()), &user_balance);
         let transaction = Transaction {
@@ -85,6 +133,19 @@ impl Gyro {
         Self::save_transaction(env.clone(), user.clone(), transaction)?;
         env.events().publish((WITHDRAW, &user, asset_type), amount);
         Ok(())
+    }
+
+    fn find_available_admin(env: &Env, token: &token::Client, amount: u32) -> Option<Address> {
+        let client = user_contract::Client::new(env, &env.storage().instance().get(&USER_CONTRACT).unwrap());
+        let admins: Vec<Address> = client.get_admins();
+
+        for admin in admins.iter() {
+            let allowance = token.allowance(&admin, &env.current_contract_address());
+            if allowance >= amount as i128 {
+                return Some(admin.clone());
+            }
+        }
+        None
     }
 
     fn save_transaction(
