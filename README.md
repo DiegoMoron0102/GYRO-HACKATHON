@@ -15,7 +15,7 @@
 
 ## Sobre el Proyecto
 
-GYRO Wallet es una aplicación de billetera digital desarrollada para el **GYRO-HACKATHON**. Proporciona una experiencia de usuario fluida para la gestión de activos digitales, con un fuerte enfoque en la seguridad y la simplicidad. La aplicación utiliza el poder de los smart contracts de Soroban en la red de pruebas de Stellar para manejar la lógica de negocio on-chain.
+GYRO Wallet es una aplicación de billetera digital desarrollada para el **GYRO-HACKATHON**. Proporciona una experiencia de usuario fluida y fácil de entender para la gestión de activos digitales, con un fuerte enfoque en la seguridad y la simplicidad. La aplicación utiliza el poder de los smart contracts de Soroban en la red de pruebas de Stellar para manejar la lógica de negocio on-chain.
 
 ## ✨ Características
 
